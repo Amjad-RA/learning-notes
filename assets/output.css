@@ -184,17 +184,20 @@ svg.diagram { width:100%; height:auto; display:block; }
   h2 { break-after:avoid; } .card, .tile, .step, tr, .callout { break-inside:avoid; box-shadow:none; }
 }
 
-/* Vercel-documentation-style theme for the PUBLIC learning site only. tools/publish_learning.py appends it to
+/* Next.js-documentation-style theme for the PUBLIC learning site only. tools/publish_learning.py appends it to
    assets/output.css and learning/notes.css in the copy; the private workspace keeps its own look.
-   Everything is inside "@media screen" so printing keeps the original print styles. */
+   Values measured from nextjs.org/docs (Nov 2026): Geist, a near-white page (#fafafa) or black in dark mode,
+   monochrome accents, links in the text colour with a grey underline, grey pill for the current sidebar item,
+   bordered inline code, code blocks with a header bar. Inside "@media screen" so print keeps its own styles. */
 @media screen {
   :root, :root[data-theme="light"] {
-    --bg:#fff; --paper:#fff; --surface:#fff; --surface-2:#f2f2f2; --chip:#f2f2f2; --line:#eaeaea; --border:#eaeaea;
-    --ink:#171717; --text:#171717; --muted:#666; --accent:#0068d6; --accent-soft:#ebf5ff; --on-accent:#fff;
-    --teal:#067a6e; --green:#297a3a; --olive:#5b6b00;
+    --bg:#fafafa; --paper:#fff; --surface:#fff; --surface-2:#f2f2f2; --chip:#f2f2f2; --line:#ebebeb; --border:#ebebeb;
+    --ink:#171717; --text:#171717; --muted:#4d4d4d; --faint:#8f8f8f; --body:rgb(23 23 23 / .9);
+    --accent:#171717; --accent-soft:#ebebeb; --on-accent:#fff; --exam:#171717;
+    --teal:#171717; --green:#171717; --olive:#171717;
     --ok:#297a3a; --ok-soft:#effbef; --tip:#297a3a; --tip-soft:#effbef; --bad:#cb2a2f; --bad-soft:#fff0f0;
     --trap:#cb2a2f; --trap-soft:#fff0f0; --gold:#a35200; --gold-soft:#fff6e5; --key:#a35200; --key-soft:#fff6e5;
-    --amber:#a35200; --info:#0068d6; --info-soft:#ebf5ff;
+    --amber:#a35200; --info:#0068d6; --info-soft:#ebf5ff; --code-line:rgb(0 0 0 / .08);
   }
   :root {
     --radius:8px; --radius-sm:6px; --shadow:none;
@@ -203,54 +206,80 @@ svg.diagram { width:100%; height:auto; display:block; }
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg:#0a0a0a; --paper:#0a0a0a; --surface:#0a0a0a; --surface-2:#1a1a1a; --chip:#1a1a1a; --line:#2e2e2e; --border:#2e2e2e;
-      --ink:#ededed; --text:#ededed; --muted:#a1a1a1; --accent:#52a8ff; --accent-soft:#0f1b2d; --on-accent:#0a0a0a;
-      --teal:#0ac7b4; --green:#62c073; --olive:#b7cc4d;
+      --bg:#000; --paper:#0a0a0a; --surface:#0a0a0a; --surface-2:#1a1a1a; --chip:#1a1a1a; --line:#2e2e2e; --border:#2e2e2e;
+      --ink:#ededed; --text:#ededed; --muted:#a1a1a1; --faint:#707070; --body:rgb(237 237 237 / .9);
+      --accent:#ededed; --accent-soft:#1f1f1f; --on-accent:#0a0a0a; --exam:#ededed;
+      --teal:#ededed; --green:#ededed; --olive:#ededed;
       --ok:#62c073; --ok-soft:#0b2113; --tip:#62c073; --tip-soft:#0b2113; --bad:#ff6166; --bad-soft:#2a1314;
       --trap:#ff6166; --trap-soft:#2a1314; --gold:#ff9f0a; --gold-soft:#2a1d08; --key:#ff9f0a; --key-soft:#2a1d08;
-      --amber:#ff9f0a; --info:#52a8ff; --info-soft:#0f1b2d;
+      --amber:#ff9f0a; --info:#52a8ff; --info-soft:#0f1b2d; --code-line:rgb(255 255 255 / .14);
     }
   }
   :root[data-theme="dark"] {
-    --bg:#0a0a0a; --paper:#0a0a0a; --surface:#0a0a0a; --surface-2:#1a1a1a; --chip:#1a1a1a; --line:#2e2e2e; --border:#2e2e2e;
-    --ink:#ededed; --text:#ededed; --muted:#a1a1a1; --accent:#52a8ff; --accent-soft:#0f1b2d; --on-accent:#0a0a0a;
-    --teal:#0ac7b4; --green:#62c073; --olive:#b7cc4d;
+    --bg:#000; --paper:#0a0a0a; --surface:#0a0a0a; --surface-2:#1a1a1a; --chip:#1a1a1a; --line:#2e2e2e; --border:#2e2e2e;
+    --ink:#ededed; --text:#ededed; --muted:#a1a1a1; --faint:#707070; --body:rgb(237 237 237 / .9);
+    --accent:#ededed; --accent-soft:#1f1f1f; --on-accent:#0a0a0a; --exam:#ededed;
+    --teal:#ededed; --green:#ededed; --olive:#ededed;
     --ok:#62c073; --ok-soft:#0b2113; --tip:#62c073; --tip-soft:#0b2113; --bad:#ff6166; --bad-soft:#2a1314;
     --trap:#ff6166; --trap-soft:#2a1314; --gold:#ff9f0a; --gold-soft:#2a1d08; --key:#ff9f0a; --key-soft:#2a1d08;
-    --amber:#ff9f0a; --info:#52a8ff; --info-soft:#0f1b2d;
+    --amber:#ff9f0a; --info:#52a8ff; --info-soft:#0f1b2d; --code-line:rgb(255 255 255 / .14);
   }
 
-  /* type: tight, semibold headings; no underline bars */
-  h1, h2, h3, h4 { font-weight:600; letter-spacing:-.025em; }
-  h2 { border-bottom:0; padding-bottom:0; margin-top:40px; }
+  /* type: Geist, light-weight headings with tight tracking, 28px body lines */
+  body { font-size:16px; line-height:1.75; }
+  p, li { color:var(--body); }
+  h1, h2, h3, h4 { font-weight:500; color:var(--ink); }
+  h1 { letter-spacing:-.05em; line-height:1.2; }
+  h2 { letter-spacing:-.04em; border-bottom:0; padding-bottom:0; margin:48px 0 20px; }
+  h3 { letter-spacing:-.02em; }
   h2.sub { color:var(--ink); }
-  .domain-head { border-bottom:1px solid var(--border); }
+  .domain-head { border-bottom:0; }
+  .hero .lead, .sub { color:var(--muted); }
+
+  /* links in the text: text colour with a grey underline (blue is kept for info only) */
+  main p a, main li a, main td a, .callout a, .lead a { color:var(--ink); text-decoration:underline;
+    text-decoration-color:var(--faint); text-decoration-thickness:1px; text-underline-offset:3px; }
+  main p a:hover, main li a:hover, main td a:hover { text-decoration-color:var(--ink); }
+
+  /* inline code and code blocks */
+  code { font-size:13px; background:var(--surface-2); border:1px solid var(--code-line); border-radius:5px; padding:2px 4px; }
+  pre { background:var(--surface); border:1px solid var(--border); border-radius:8px; font-size:13.5px; line-height:1.7; }
+  pre code { border:0; padding:0; font-size:inherit; }
 
   /* flat surfaces, hairline borders */
-  .card, .tile, .step, .stepcard, .topic { box-shadow:none; }
-  .bar, .site-header { background:color-mix(in srgb, var(--bg) 85%, transparent); }
-  .eyebrow { background:none; color:var(--muted); padding:0; font-weight:500; }
-  .brand .logo { background:var(--chip); border:1px solid var(--line); }
-  .sec-num, .toc-num { background:none; color:var(--muted); font-weight:500; }
+  .card, .tile, .step, .stepcard, .topic, .quiz, .dg-scroll { box-shadow:none; }
+  .card.accent { border-top:1px solid var(--border); }
+  .bar, .site-header, .toc, .ptoc { background:color-mix(in srgb, var(--bg) 85%, transparent); }
+  .site-header .inner { min-height:64px; }
+  .eyebrow { background:none; color:var(--muted); padding:0; font:400 14px var(--font); letter-spacing:0; text-transform:none; }
+  .brand .logo { background:var(--surface); border:1px solid var(--border); }
+  .sec-num, .toc-num, .domain-num { background:none; color:var(--faint); font-weight:400; }
 
-  /* sidebar: plain list, the current section in a soft blue pill */
-  .toc-title { text-transform:none; letter-spacing:0; font-size:13.5px; font-weight:600; color:var(--text, var(--ink)); }
-  .toc nav a, .ptoc nav a { border-left:0; border-radius:6px; }
-  .toc nav a:hover, .ptoc nav a:hover { background:var(--chip); }
-  .toc nav a.active, .ptoc nav a.active { background:var(--accent-soft); color:var(--accent); font-weight:500; }
+  /* sidebar and "On this page": grey text, the current item a grey pill */
+  .toc-title, .toc .toc-title { text-transform:none; letter-spacing:0; font-size:14px; font-weight:500; color:var(--ink); }
+  .toc nav a, .ptoc nav a { border-left:0; border-radius:6px; color:var(--muted); font-size:14px; }
+  .toc nav a:hover, .ptoc nav a:hover { background:transparent; color:var(--ink); }
+  .toc nav a.active, .ptoc nav a.active { background:var(--accent-soft); color:var(--ink); font-weight:400; }
+  .nav a, .bar nav.site a { color:var(--muted); font-size:14px; }
+  .nav a[aria-current="page"] { background:transparent; color:var(--ink); font-weight:500; }
 
-  /* buttons: black on white (white on black in dark mode), small radius */
+  /* buttons: black on white (white on black in dark mode), 6px radius; secondary ones outlined */
   a.btn, .acts a.main, .topic .acts a.main, .viz-ctrl button.main, .donebar button.main, .bar .barnav a.on {
     background:var(--ink); border-color:var(--ink); color:var(--bg); }
   a.btn, .acts a, .topic .acts a, .barnav a, .nav a, .bar button, .icon-btn, .viz-ctrl button, .viz-scrub button,
-  .viz-speed, .viz-mode, .donebar button, .search, .tag { border-radius:6px; }
+  .viz-speed, .viz-mode, .donebar button, .search, .tag, .chip { border-radius:6px; }
+  .bar button, .icon-btn { background:var(--surface); }
 
-  /* callouts: bordered box instead of a thick left stripe */
-  .callout { border:1px solid color-mix(in srgb, var(--gold) 35%, var(--line)); }
-  .callout.warn, .callout.trap { border-color:color-mix(in srgb, var(--bad) 35%, var(--line)); }
-  .callout.tip { border-color:color-mix(in srgb, var(--ok) 35%, var(--line)); }
-  .callout.info { border-color:color-mix(in srgb, var(--info) 35%, var(--line)); }
+  /* tags: neutral grey, colour only where it means something */
+  .tag.p0, .tag.p2, .chip.hot { background:var(--surface-2); color:var(--ink); border-color:var(--border); }
+
+  /* callouts: Next.js "Good to know" style, a quiet bordered box */
+  .callout { background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+  .callout.warn, .callout.trap { background:var(--bad-soft); border-color:color-mix(in srgb, var(--bad) 30%, var(--border)); }
+  .callout.info { background:var(--info-soft); border-color:color-mix(in srgb, var(--info) 30%, var(--border)); }
   .plain, .cheatsheet { background:var(--surface); }
 
-  thead th { background:var(--chip); text-transform:none; letter-spacing:0; }
+  thead th { background:var(--bg); text-transform:none; letter-spacing:0; color:var(--muted); font-weight:500; }
+  .search { background:var(--surface); }
+  .progress i, .viz-fill { background:var(--ink); }
 }
