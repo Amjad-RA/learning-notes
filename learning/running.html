@@ -1,0 +1,257 @@
+<!doctype html>
+<!-- Running track: master syllabus (roadmap to a 10 km race). Linked from the Learning hub (04-study/learning.html),
+     whose card reads the progress saved here (localStorage: run:done = finished tutorial numbers).
+     Each tutorial below gets its own page in 04-study/learning/ when it is built (same head, bar and controls as rubiks-cube.html). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Running: road to 10 km</title>
+<link rel="stylesheet" href="../assets/output.css">
+<script src="../assets/page.js"></script>
+<style>
+  .bar { flex-wrap:wrap; row-gap:6px; }
+  .barnav { order:3; width:100%; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .barnav a { flex:none; font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px; background:var(--chip); color:var(--ink); text-decoration:none; margin:0; }
+  .barnav a.on { background:var(--accent); color:var(--paper); }
+  [id] { scroll-margin-top:110px; }
+  h2.sub { margin:30px 0 8px; font-size:20px; }
+  .meta-row { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 0; }
+  .now { background:var(--paper); border:1px solid var(--accent); border-radius:14px; padding:12px 14px; margin:12px 0; display:flex; gap:12px; align-items:center; }
+  .now .big { font-size:30px; } .now b { display:block; font-size:16px; } .now span { font-size:13.5px; color:var(--muted); }
+
+  /* weekly volume chart */
+  .chart { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:12px 12px 8px; }
+  .chart svg { width:100%; height:auto; display:block; }
+  .chart .lbl { font-size:11px; fill:var(--muted); }
+  .chart .cur { fill:none; stroke:var(--ink); stroke-width:1.5; stroke-dasharray:3 3; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:12.5px; color:var(--muted); margin-top:6px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+
+  /* phases */
+  .phases { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin-top:10px; }
+  .ph { min-width:0; }
+  .ph { background:var(--paper); border:1px solid var(--line); border-left:5px solid var(--c); border-radius:12px; padding:12px 14px; }
+  .ph .top { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; }
+  .ph h3 { margin:0; font-size:16px; }
+  .ph .wk { font-size:12.5px; font-weight:700; color:var(--c); }
+  .ph p { margin:6px 0; font-size:14px; }
+  .ph .exit { font-size:13px; background:var(--chip); border-radius:8px; padding:6px 9px; }
+  .tbl { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  .tbl th, .tbl td { border-bottom:1px solid var(--line); padding:6px 6px; text-align:left; vertical-align:top; }
+  .tbl th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .scroll { overflow-x:auto; }
+
+  /* tutorials */
+  .tuts { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr)); gap:10px; margin-top:10px; }
+  .tut { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:6px; }
+  .tut .head { display:flex; gap:10px; align-items:center; }
+  .tut .num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--chip); color:var(--ink); font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .tut.done .num { background:var(--accent); color:var(--paper); }
+  .tut.done { border-color:var(--accent); }
+  .tut h4 { margin:0; font-size:15px; }
+  .tut p { margin:0; font-size:13.5px; }
+  .tut .viz { font-size:12.5px; color:var(--muted); }
+  .tut .foot { display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:auto; padding-top:4px; }
+  .tut label { display:flex; gap:6px; align-items:center; font-size:13px; font-weight:600; cursor:pointer; }
+  .tut input { width:18px; height:18px; accent-color:var(--accent); }
+  .tut a.open { text-decoration:none; font-size:13px; font-weight:700; background:var(--accent); color:var(--paper); border-radius:999px; padding:6px 12px; }
+
+  /* week 1 */
+  .check { list-style:none; padding:0; margin:8px 0; display:grid; gap:6px; }
+  .check li { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:9px 12px; display:flex; gap:10px; align-items:flex-start; font-size:14px; }
+  .check input { width:20px; height:20px; flex:none; accent-color:var(--accent); margin-top:1px; }
+  .zones { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr)); gap:8px; margin:8px 0; }
+  .zones div { border-radius:10px; padding:10px; background:var(--paper); border:1px solid var(--line); border-top:4px solid var(--c); font-size:13px; }
+  .zones b { display:block; font-size:14px; }
+</style>
+</head>
+<body data-nofold>
+<div class="wrap">
+  <div class="bar"><a href="../index.html">← Learning</a><button class="print" onclick="window.print()">Print / Save as PDF</button>
+    <nav class="barnav"><a href="#overview">Roadmap</a><a href="#phases">4 phases</a><a href="#tutorials">13 tutorials</a><a href="#effort">Easy pace</a><a href="#safety">Safety</a><a href="#week1">Week 1</a></nav></div>
+  <header class="doc">
+    <div class="eyebrow">07 Health · Learning · Running track</div>
+    <h1>🏃 Running: road to 10 km</h1>
+    <p class="sub">From walking and short jogs to running a 10 km race in 26 weeks. It's built for beginners: protect the joints first, then build pace.</p>
+    <div class="meta-row"><span class="tag p2">Beginner</span><span class="tag">26 weeks · 3–4 runs a week</span><span class="tag">Start Mon 23 Nov 2026</span><span class="tag">Race window: late May 2027</span></div>
+  </header>
+  <main>
+    <div class="now" id="now"><div class="big">📍</div><div><b id="now-t">Week 1 starts Monday 23 Nov 2026</b><span id="now-s">Phase 1 · Walk–run. Start with the Week 1 checklist at the bottom.</span></div></div>
+
+    <h2 class="sub" id="overview">The roadmap</h2>
+    <div class="grid" style="--min:140px">
+      <div class="tile"><div class="k">Weeks</div><div class="v">26</div></div>
+      <div class="tile"><div class="k">Phases</div><div class="v">4</div></div>
+      <div class="tile"><div class="k">Tutorials</div><div class="v" id="tut-count">0 / 13</div></div>
+      <div class="tile"><div class="k">Easy running</div><div class="v">~80%</div></div>
+    </div>
+    <div class="chart" style="margin-top:10px">
+      <div class="note" style="font-size:13px;margin-bottom:4px"><b>Minutes of running per week.</b> It grows slowly, with an easier week every 4th week so your joints can catch up.</div>
+      <svg id="vol" viewBox="0 0 640 220" role="img" aria-label="Weekly running minutes over 26 weeks"></svg>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <h2 class="sub" id="phases">4 phases</h2>
+    <p class="note">Move to the next phase only when you meet its <b>"Ready when"</b> line. Being late is fine; getting injured is not.</p>
+    <div class="phases">
+      <div class="ph" style="--c:#4A78B0">
+        <div class="top"><span class="wk">WEEKS 1–8</span><h3>1 · Walk–run: build the habit</h3></div>
+        <p>Three sessions a week, never two days in a row. Each one is a brisk 5-minute walk, then jog/walk intervals. The jogs get longer each week.</p>
+        <div class="scroll"><table class="tbl"><thead><tr><th>Week</th><th>Intervals (after a 5 min walk)</th><th>Jogging</th></tr></thead><tbody>
+          <tr><td>1</td><td>8 × (jog 1 min, walk 2 min)</td><td>8 min</td></tr>
+          <tr><td>2</td><td>6 × (jog 2 min, walk 2 min)</td><td>12 min</td></tr>
+          <tr><td>3</td><td>5 × (jog 3 min, walk 2 min)</td><td>15 min</td></tr>
+          <tr><td>4</td><td>4 × (jog 5 min, walk 2 min)</td><td>20 min</td></tr>
+          <tr><td>5</td><td>3 × (jog 8 min, walk 2 min)</td><td>24 min</td></tr>
+          <tr><td>6</td><td>2 × (jog 12 min, walk 2 min)</td><td>24 min</td></tr>
+          <tr><td>7</td><td>Jog 20 min without stopping</td><td>20 min</td></tr>
+          <tr><td>8</td><td>Jog 25–30 min without stopping</td><td>25–30 min</td></tr>
+        </tbody></table></div>
+        <p class="exit"><b>Ready when:</b> you can jog 30 minutes non-stop at an easy pace, with no pain the next morning. A week felt hard? Repeat it.</p>
+      </div>
+      <div class="ph" style="--c:#2F7A4A">
+        <div class="top"><span class="wk">WEEKS 9–16</span><h3>2 · Aerobic base: 5 km</h3></div>
+        <p>All runs are easy (you can talk in full sentences). Add a 4th short run only if your legs feel fresh. The long run grows from 35 to 50 minutes. Weeks 12 and 16 are easier weeks.</p>
+        <div class="scroll"><table class="tbl"><thead><tr><th>Day</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr></thead><tbody>
+          <tr><td>Plan</td><td>Rest</td><td>Easy 30 min</td><td>Strength</td><td>Easy 30 min</td><td>Rest or walk</td><td>Long run</td><td>Strength or rest</td></tr>
+        </tbody></table></div>
+        <p class="exit"><b>Ready when:</b> you can run 5 km without stopping (week 16 test run, at any speed), and you've done 2 strength sessions a week for 4 weeks.</p>
+      </div>
+      <div class="ph" style="--c:#B86A3C">
+        <div class="top"><span class="wk">WEEKS 17–24</span><h3>3 · Build to 10 km</h3></div>
+        <p>The long run goes up by about 1 km a week: 6 → 7 → 8 → 6 (easier week) → 9 → 10 → 8 → 11 km. From week 17, add one quality session a week: strides first, then tempo, then intervals.</p>
+        <div class="scroll"><table class="tbl"><thead><tr><th>Day</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr></thead><tbody>
+          <tr><td>Plan</td><td>Rest</td><td>Easy 35–40 min + strides</td><td>Strength</td><td>Quality session</td><td>Rest</td><td>Long run</td><td>Easy 20–30 min or rest</td></tr>
+        </tbody></table></div>
+        <p class="exit"><b>Ready when:</b> you have run 10–11 km in one go at an easy pace, and recovered within 2 days.</p>
+      </div>
+      <div class="ph" style="--c:#9A8A3A">
+        <div class="top"><span class="wk">WEEKS 25–26</span><h3>4 · Taper and race</h3></div>
+        <p>Run about a third less, keep a little speed, sleep well. Race at a pace you could hold for the whole distance, and run the last 2 km faster if you feel strong.</p>
+        <p class="exit"><b>Done when:</b> you have crossed a 10 km finish line. Then choose your next goal: a faster 10 km, or a half marathon.</p>
+      </div>
+    </div>
+
+    <h2 class="sub" id="tutorials">13 tutorials, in order</h2>
+    <p class="note">Each tutorial has its own page with an interactive 3D animation. Open the one for your phase; tick <b>Done</b> once you have used it in training. Your progress shows on the Learning page.</p>
+    <div class="tuts" id="tuts"></div>
+
+    <h2 class="sub" id="effort">Easy pace: the most important idea</h2>
+    <p class="note">About 80% of your running should feel easy. Easy running builds your heart, lungs and legs with the least strain on your joints. That matters most for beginners. You don't need a heart-rate monitor: use the talk test.</p>
+    <div class="zones">
+      <div style="--c:#4A78B0"><b>Easy (Zone 2)</b>You can talk in full sentences. Effort 3–4 out of 10. Most runs.</div>
+      <div style="--c:#B86A3C"><b>Tempo</b>Only a few words at a time. Effort 6–7 out of 10. From week 19.</div>
+      <div style="--c:#A33A2E"><b>Hard intervals</b>You can't talk. Effort 8–9 out of 10. From week 21, short bursts only.</div>
+    </div>
+    <div class="callout">"Effort out of 10" is called <b>RPE</b> (rate of perceived exertion): how hard it feels to you, from 1 (resting) to 10 (all-out). If you can't talk on an easy run, slow down or walk. Walking is part of the plan, not failure.</div>
+
+    <h2 class="sub" id="safety">Safety rules</h2>
+    <div class="dodont">
+      <div class="do"><h3>Do</h3><ul>
+        <li>Run on even, softer ground where you can (a track, a park path).</li>
+        <li>Take short, quick steps, landing under your hips.</li>
+        <li>Rest a day between runs in phase 1.</li>
+        <li>Do strength work twice a week: hips, thighs, calves, core.</li>
+        <li>Sleep: the bedtime goal on your dashboard is also your recovery plan.</li>
+      </ul></div>
+      <div class="dont"><h3>Don't</h3><ul>
+        <li>Add more than one change a week (longer <i>and</i> faster).</li>
+        <li>Run through sharp pain, pain that makes you limp, or pain that is worse the next morning.</li>
+        <li>Make up missed runs by doubling the next one.</li>
+        <li>Wear old or worn-out shoes.</li>
+      </ul></div>
+    </div>
+    <div class="callout warn">Stop and see a doctor if you get chest pain, dizziness or unusual breathlessness. If you have a heart, blood pressure or other health condition, check with a doctor before you start. <b>Pain rule:</b> mild soreness (up to 3 out of 10) that settles during the run is OK. Anything worse, or worse the next day: rest 2 days, then repeat the last easy week.</div>
+
+    <h2 class="sub" id="week1">Week 1 checklist</h2>
+    <p class="note">This week's actions. Ticks are saved on this device.</p>
+    <ul class="check" id="w1">
+      <li><input type="checkbox"> Check your running shoes. Shoes that are old, worn or not made for running → get a pair fitted at a running shop.</li>
+      <li><input type="checkbox"> Baseline: walk briskly for 30 minutes and note how it felt (effort out of 10), plus your weight that morning.</li>
+      <li><input type="checkbox"> Choose 3 fixed days (for example Tue, Thu, Sat) and a safe, flat route.</li>
+      <li><input type="checkbox"> Run 1: 5 min walk + 8 × (jog 1 min, walk 2 min). Easy pace: talk test.</li>
+      <li><input type="checkbox"> Run 2: same as run 1, at least one rest day later.</li>
+      <li><input type="checkbox"> Run 3: same again. If it felt easy and nothing hurts, move to week 2 next week.</li>
+      <li><input type="checkbox"> Score each run in your journal: minutes jogged and effort out of 10.</li>
+    </ul>
+  <p class="note">General information, not medical advice. Check with a doctor before you start.</p>
+</main>
+</div>
+<script>
+(function () {
+  // ---------- tutorials (13). phase: 1–4. week: when to read it. ----------
+  const F = ['form', 'walk-run', 'easy-pace', 'warm-up', 'strength', 'recovery', 'shoes', 'first-5k', 'cadence', 'long-run', 'tempo', 'fuel', 'race'];
+  const T = [
+    [1, 1, 'Running form basics', 'Tall posture, relaxed arms, feet landing under your hips. Less impact on knees.', '3D runner: posture, foot strike, arm swing'],
+    [2, 1, 'The walk–run method', 'Why intervals work, how to pace them, when to repeat a week.', 'Interval timeline: jog and walk blocks over 8 weeks'],
+    [3, 1, 'Easy pace and Zone 2', 'The talk test, effort out of 10, heart-rate zones explained simply.', 'Effort gauge: zones light up as the runner speeds up'],
+    [4, 1, 'Warm-up and cool-down', '5 minutes before, 5 after: what to do and why.', '3D moves: leg swings, ankle circles, calf stretch'],
+    [5, 2, 'Strength for runners', 'Six exercises for hips, thighs, calves and core, twice a week. Joint-friendly.', '3D squat, glute bridge, calf raise: joint angles and muscles'],
+    [6, 2, 'Recovery and sleep', 'Rest days, sleep, soreness versus pain, easier weeks.', 'Load–recovery wave: stress, rest, getting fitter'],
+    [7, 2, 'Shoes, surfaces and impact', 'Choosing shoes, where to run, how surfaces change impact.', 'Impact on track, park path, road and concrete'],
+    [8, 2, 'Your first 5 km', 'Pacing a continuous 5 km, the week 16 test run.', 'Pace line: even pace versus starting too fast'],
+    [9, 3, 'Cadence and strides', 'Quick, light steps; 4–6 short relaxed speed-ups after easy runs.', '3D runner: long, slow steps versus short, quick ones'],
+    [10, 3, 'The long run', 'Building to 10–11 km: pace, water, what to eat before.', 'Distance ladder with easier weeks'],
+    [11, 3, 'Tempo and intervals', 'One quality session a week: how fast, how long, how much rest.', 'Workout shape: effort over time'],
+    [12, 3, 'Fuel and weight loss', 'Eating for running while losing weight slowly, and drinking enough.', 'Energy balance: in, out, a gentle deficit'],
+    [13, 4, 'Taper and race day', 'The last 2 weeks, race morning, a pacing plan for 10 km.', '10 km course with pace zones and checkpoints'],
+  ];
+  const PH = {1: '#4A78B0', 2: '#2F7A4A', 3: '#B86A3C', 4: '#9A8A3A'}, PN = {1: 'Walk–run', 2: 'Aerobic base', 3: 'Build to 10 km', 4: 'Taper and race'};
+  const KEY = 'run:done';
+  let done = []; try { done = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  const box = document.getElementById('tuts');
+  function paint() {
+    box.innerHTML = T.map(([n, p, t, d, v]) => `<div class="tut ${done.includes(n) ? 'done' : ''}">
+      <div class="head"><div class="num">${n}</div><h4><a href="run-${String(n).padStart(2, '0')}-${F[n - 1]}.html" style="color:inherit;text-decoration:none">${t}</a></h4></div><p>${d}</p><p class="viz">🎞️ 3D: ${v}</p>
+      <div class="foot"><span class="tag" style="background:color-mix(in srgb, ${PH[p]} 18%, var(--paper))">Phase ${p}</span>
+      <span style="display:flex;gap:10px;align-items:center"><label><input type="checkbox" data-n="${n}" ${done.includes(n) ? 'checked' : ''}> Done</label><a class="open" href="run-${String(n).padStart(2, '0')}-${F[n - 1]}.html">Open ›</a></span></div></div>`).join('');
+    document.getElementById('tut-count').textContent = `${done.length} / ${T.length}`;
+  }
+  box.addEventListener('change', e => {
+    const n = +e.target.dataset.n; if (!n) return;
+    done = done.filter(x => x !== n); if (e.target.checked) done.push(n);
+    try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (x) {} paint();
+  });
+  paint();
+
+  // ---------- where am I: week number from the start date ----------
+  const START = new Date(2026, 10, 23), week = Math.floor((Date.now() - START) / (7 * 864e5)) + 1;
+  const phaseOf = w => w <= 8 ? 1 : w <= 16 ? 2 : w <= 24 ? 3 : 4;
+  if (week >= 1 && week <= 26) {
+    document.getElementById('now-t').textContent = `This is week ${week} of 26`;
+    document.getElementById('now-s').textContent = `Phase ${phaseOf(week)} · ${PN[phaseOf(week)]}. Stay in this phase until you meet its "Ready when" line.`;
+  } else if (week > 26) {
+    document.getElementById('now-t').textContent = 'The 26 weeks are over';
+    document.getElementById('now-s').textContent = 'Race done? Pick your next goal. Not yet? Carry on from the phase you are in.';
+  }
+
+  // ---------- weekly running minutes chart ----------
+  const MIN = [24,36,45,60,72,72,60,80, 90,100,110,90,120,130,140,110, 150,160,170,140,180,190,200,160, 130,90];
+  const svg = document.getElementById('vol'), W = 640, H = 220, L = 34, B = 24, top = 10, max = 210;
+  const bw = (W - L - 6) / MIN.length, y = v => H - B - (v / max) * (H - B - top);
+  let s = '';
+  [0, 60, 120, 180].forEach(v => s += `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text class="lbl" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`);
+  MIN.forEach((v, i) => {
+    const w = i + 1, x = L + i * bw + 2, ease = [12, 16, 20, 24].includes(w);
+    s += `<rect x="${x}" y="${y(v)}" width="${bw - 4}" height="${H - B - y(v)}" rx="3" fill="${PH[phaseOf(w)]}" opacity="${ease ? .45 : .9}"><title>Week ${w}: about ${v} min${ease ? ' (easier week)' : ''}</title></rect>`;
+    if (w === 1 || w % 4 === 0 || w === 26) s += `<text class="lbl" x="${x + (bw - 4) / 2}" y="${H - 8}" text-anchor="middle">${w}</text>`;
+  });
+  s += `<text x="${W - 4}" y="${y(MIN[25]) - 8}" text-anchor="end" font-size="16">🏁</text>`;
+  if (week >= 1 && week <= 26) { const x = L + (week - 1) * bw + bw / 2; s += `<line class="cur" x1="${x}" x2="${x}" y1="${top}" y2="${H - B}"/><text class="lbl" x="${x}" y="${top + 8}" text-anchor="middle" style="fill:var(--ink);font-weight:700">you</text>`; }
+  svg.innerHTML = s;
+  document.getElementById('legend').innerHTML = [1, 2, 3, 4].map(p => `<span><i style="background:${PH[p]}"></i>${PN[p]}</span>`).join('') + '<span><i style="background:var(--muted);opacity:.45"></i>Easier week</span>';
+
+  // ---------- week 1 checklist ----------
+  const WK = 'run:w1', items = [...document.querySelectorAll('#w1 input')];
+  let w1 = []; try { w1 = JSON.parse(localStorage.getItem(WK) || '[]'); } catch (e) {}
+  items.forEach((c, i) => { c.checked = w1.includes(i); c.addEventListener('change', () => { w1 = items.map((x, k) => x.checked ? k : -1).filter(k => k >= 0); try { localStorage.setItem(WK, JSON.stringify(w1)); } catch (e) {} }); });
+
+  // ---------- highlight the part you are reading in the top bar ----------
+  const links = [...document.querySelectorAll('.barnav a')], secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  const onScroll = () => { let k = 0; secs.forEach((h, i) => { if (h && h.getBoundingClientRect().top < 140) k = i; }); links.forEach((a, i) => a.classList.toggle('on', i === k)); };
+  addEventListener('scroll', onScroll, {passive: true}); onScroll();
+})();
+</script>
+</body>
+</html>

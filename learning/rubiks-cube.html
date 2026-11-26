@@ -1,0 +1,441 @@
+<!doctype html>
+<!-- Rubik's cube beginner tutorial. Linked from the Learning hub (04-study/learning.html), whose card reads the
+     progress saved here (localStorage: cube:learned, cube:times). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rubik's cube</title>
+<link rel="stylesheet" href="../assets/output.css">
+<script src="../assets/page.js"></script>
+<style>
+  .jump { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:10px; margin:10px 0 6px; }
+  .jump a { display:flex; gap:12px; align-items:center; text-decoration:none; color:var(--ink); background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .jump a:hover { border-color:var(--accent); }
+  .jump .big { font-size:30px; }
+  .jump b { display:block; } .jump span.meta { font-size:13px; color:var(--muted); }
+  section.topic { margin-top:28px; }
+  section.topic > h2 { font-size:22px; }
+  .subnav { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px; }
+  .subnav a { font-size:13px; padding:4px 10px; border-radius:999px; background:var(--chip); color:var(--ink); text-decoration:none; }
+  h2.sub { margin:26px 0 8px; font-size:17px; }
+
+  /* step cards */
+  .lesson { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+  .lesson .head { display:flex; gap:10px; align-items:center; margin-bottom:6px; }
+  .lesson .num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--accent); color:var(--paper); font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .lesson h4 { margin:0; font-size:16px; }
+  .lesson .goal { font-size:13px; color:var(--muted); margin:0 0 8px; }
+  .lesson ol { margin:6px 0 8px 18px; padding:0; font-size:14px; } .lesson li { margin:3px 0; }
+  .alg { font-family:ui-monospace,Menlo,monospace; font-size:17px; font-weight:700; letter-spacing:.02em; background:var(--chip); border-radius:8px; padding:4px 10px; display:inline-block; margin:2px 0; }
+  .players { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); gap:10px; margin-top:8px; }
+
+  /* 3D cube player */
+  .cubeplay { border:1px dashed var(--line); border-radius:12px; padding:10px; text-align:center; }
+  .cubeplay .cap { font-size:12.5px; color:var(--muted); margin-bottom:2px; }
+  .scene { --s:44px; width:190px; height:190px; margin:0 auto; perspective:640px; touch-action:none; cursor:grab; user-select:none; }
+  .scene:active { cursor:grabbing; }
+  .cube3 { position:relative; width:100%; height:100%; transform-style:preserve-3d; }
+  .cb { position:absolute; left:50%; top:50%; width:0; height:0; transform-style:preserve-3d; }
+  .cb i { position:absolute; width:var(--s); height:var(--s); left:calc(var(--s) / -2); top:calc(var(--s) / -2); box-sizing:border-box; border:3px solid #151515; border-radius:6px; background:#151515; }
+  .cb .px { transform:rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+  .cb .nx { transform:rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+  .cb .py { transform:rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+  .cb .ny { transform:rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+  .cb .pz { transform:translateZ(calc(var(--s) / 2)); }
+  .cb .nz { transform:rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+  .toks { font-family:ui-monospace,Menlo,monospace; font-size:15px; font-weight:700; margin:4px 0 6px; line-height:1.9; }
+  .toks span { padding:1px 5px; border-radius:6px; }
+  .toks span.done { color:var(--muted); }
+  .toks span.cur { background:var(--accent); color:var(--paper); }
+  .ctrl { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+  .ctrl button, .moves button, .speed button, .tbtn { font:inherit; font-size:13px; border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:999px; padding:6px 12px; cursor:pointer; min-height:34px; }
+  .ctrl button.main, .tbtn.main { background:var(--accent); color:var(--paper); border-color:var(--accent); font-weight:600; }
+  .moves { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; max-width:420px; margin:8px auto 0; }
+  .moves button { font-family:ui-monospace,Menlo,monospace; font-weight:700; padding:6px 0; }
+  .speed { display:flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); margin:6px 0 0; flex-wrap:wrap; }
+  .speed button.on { background:var(--chip); border-color:var(--accent); }
+  .faces { display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; margin:8px 0; }
+  .faces div { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:8px; text-align:center; font-size:13px; }
+  .faces b { font-family:ui-monospace,Menlo,monospace; font-size:20px; display:block; }
+
+  /* milestones + exercises */
+  .ladder { display:flex; gap:0; margin:10px 0; overflow-x:auto; }
+  .ladder div { flex:1 0 110px; text-align:center; padding:8px 6px; border-top:4px solid var(--accent); font-size:13px; }
+  .ladder div:nth-child(2) { border-color:color-mix(in srgb, var(--accent) 75%, var(--paper)); }
+  .ladder div:nth-child(3) { border-color:color-mix(in srgb, var(--accent) 55%, var(--paper)); }
+  .ladder div:nth-child(4) { border-color:color-mix(in srgb, var(--accent) 35%, var(--paper)); }
+  .ladder b { display:block; font-size:16px; }
+  .drill { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .drill .big { font-size:24px; } .drill h4 { margin:4px 0; font-size:15px; } .drill p { margin:3px 0; font-size:13.5px; }
+  .drill .how { font-size:12.5px; color:var(--muted); }
+
+  /* timer */
+  .timer { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; text-align:center; }
+  .scr { font-family:ui-monospace,Menlo,monospace; font-size:15px; font-weight:600; background:var(--chip); border-radius:8px; padding:8px; margin:6px 0 10px; word-spacing:4px; }
+  .clock { font-family:ui-monospace,Menlo,monospace; font-size:52px; font-weight:700; margin:4px 0 10px; color:var(--ink); }
+  .clock.run { color:var(--accent); }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0 6px; }
+  .times { font-family:ui-monospace,Menlo,monospace; font-size:13px; color:var(--muted); margin-top:6px; }
+
+  /* exam buttons */
+  .exam-btns { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:10px; margin-top:10px; }
+  .exam-btns a { display:block; text-decoration:none; text-align:left; border-radius:12px; padding:14px; background:var(--accent); color:var(--paper); }
+  .exam-btns a:hover { opacity:.88; }
+  .exam-btns small { display:block; font-size:12px; opacity:.85; font-weight:700; letter-spacing:.05em; }
+  .exam-btns b { display:block; font-size:16px; margin-top:2px; }
+  .bar { flex-wrap:wrap; row-gap:6px; }
+  .barnav { order:3; width:100%; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .barnav a { flex:none; font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px; background:var(--chip); color:var(--ink); text-decoration:none; margin:0; }
+  .barnav a.on { background:var(--accent); color:var(--paper); }
+  [id] { scroll-margin-top:110px; }
+  .stepdots { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 4px; }
+  .stepdots a { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-decoration:none; font-weight:700; border:2px solid var(--line); color:var(--ink); background:var(--paper); }
+  .stepdots a.ok { background:var(--accent); border-color:var(--accent); color:var(--paper); }
+  .learned { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; font-weight:600; cursor:pointer; }
+  .learned input { width:20px; height:20px; accent-color:var(--accent); }
+  .lesson.ok { border-color:var(--accent); }
+  @media print { .ctrl, .moves, .speed, .tbtn { display:none; } }
+</style>
+</head>
+<body data-nofold>
+<div class="wrap">
+  <div class="bar"><a href="../index.html">← Learning</a><button class="print" onclick="window.print()">Print / Save as PDF</button>
+    <nav class="barnav"><a href="#cube-notation">1 · Moves</a><a href="#cube-steps">2 · 7 steps</a><a href="#cube-speed">3 · Get faster</a><a href="#cube-timer">4 · Timer</a></nav></div>
+  <header class="doc">
+    <div class="eyebrow">04 Study · Learning</div>
+    <h1>🧩 Rubik's cube</h1>
+    <p class="sub">Your method in 7 steps, plus drills and a timer to get faster. Every cube is live: press ▶ to watch it, or drag it to turn it around.</p>
+  </header>
+  <main>
+      <div class="grid" style="--min:140px">
+        <div class="tile"><div class="k">Steps</div><div class="v">7</div></div>
+        <div class="tile"><div class="k">Algorithms</div><div class="v">7</div></div>
+        <div class="tile"><div class="k">Speed drills</div><div class="v">6</div></div>
+        <div class="tile"><div class="k">Practice</div><div class="v">15 min a day</div></div>
+      </div>
+      <div class="speed" id="speedbar">Animation speed:
+        <button type="button" data-ms="900">Slow</button><button type="button" data-ms="450" class="on">Normal</button><button type="button" data-ms="200">Fast</button>
+      </div>
+
+      <h2 class="sub" id="cube-notation">1 · Learn the moves first</h2>
+      <p class="note">Hold the cube with one face pointing at you. Each letter names a face. Turn it the way a clock turns, as if you are looking straight at that face.</p>
+      <div class="faces">
+        <div><b>R</b>Right</div><div><b>L</b>Left</div><div><b>U</b>Up (top)</div><div><b>D</b>Down</div><div><b>F</b>Front</div><div><b>B</b>Back</div>
+      </div>
+      <div class="dodont">
+        <div class="do"><h3>Read it like this</h3><ul><li><b>R</b> = right face, clockwise</li><li><b>R'</b> ("R prime") = right face, anticlockwise</li><li><b>R2</b> = right face, turned twice</li><li>Old notes: <b>R1</b> = <b>R'</b></li></ul></div>
+        <div class="dont"><h3>Common mistakes</h3><ul><li>Turning the whole cube instead of one face</li><li>Looking at the front while turning L, D or B: look from that face's own side</li></ul></div>
+      </div>
+      <div class="cubeplay" id="notation">
+        <div class="cap">Tap a move to see it. White is on top and green is at the front.</div>
+        <div class="moves"></div>
+        <div class="ctrl" style="margin-top:8px"><button type="button" data-act="reset">↺ Reset</button></div>
+      </div>
+
+      <h2 class="sub" id="cube-steps">2 · The 7 steps</h2>
+      <p class="note">Tick "I can do this step" once you can do it without looking. Your progress shows on the Learning page.</p>
+      <div class="stepdots" id="stepdots"></div>
+      <div class="callout">Every cube shows the step's situation, then solves it when you press ▶. Use <b>Next move</b> to go one turn at a time and copy each turn on your own cube.</div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">1</div><h4>White cross ⬜➕</h4></div>
+        <p class="goal">Goal: a white plus on top, and each edge's side colour matches the centre below it.</p>
+        <ol>
+          <li>Hold white on top. Find a white edge piece (2 colours).</li>
+          <li>If it is in the bottom layer, turn <b>D</b> until it sits under its matching centre, then turn that face twice: <span class="alg">F2</span></li>
+          <li>If it is on top but white faces outwards (flipped): <span class="alg">F U' R U</span></li>
+          <li>No fixed algorithm here: work it out slowly. That's normal.</li>
+        </ol>
+        <div class="players">
+          <div class="cubeplay" data-alg="F2" data-cap="Edge in the bottom layer"></div>
+          <div class="cubeplay" data-alg="F U' R U" data-cap="Edge on top but flipped"></div>
+        </div>
+      </div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">2</div><h4>White corners</h4></div>
+        <p class="goal">Goal: the whole white face is done, and the first layer's sides match their centres.</p>
+        <ol>
+          <li><b>Turn the cube over: white is now at the bottom</b> and stays there for the rest of the solve.</li>
+          <li>Find a corner with white in the top layer. Turn <b>U</b> until it sits right above its place, at the front right.</li>
+          <li>Repeat <span class="alg">R U R' U'</span> until the corner drops in correctly (1, 3 or 5 times).</li>
+        </ol>
+        <div class="players"><div class="cubeplay" data-setup="x2" data-alg="R U R' U' R U R' U' R U R' U'" data-cap="White at the bottom, corner at the front right"></div></div>
+      </div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">3</div><h4>Middle layer: top to left, top to right</h4></div>
+        <p class="goal">Goal: the first two layers are finished.</p>
+        <ol>
+          <li>Find a top edge with <b>no yellow</b>. Turn <b>U</b> until its front colour matches the front centre (an upside-down T).</li>
+          <li><b>Top to left</b>: if its top colour matches the <b>left</b> centre, do <span class="alg">U' L' U L U F U' F'</span></li>
+          <li><b>Top to right</b>: if it matches the <b>right</b> centre, do <span class="alg">U R U' R' U' F' U F</span></li>
+          <li>Edge stuck in the wrong slot? Do either one once to pop it out, then put it in again.</li>
+        </ol>
+        <div class="players">
+          <div class="cubeplay" data-setup="x2" data-alg="U' L' U L U F U' F'" data-cap="Top to left"></div>
+          <div class="cubeplay" data-setup="x2" data-alg="U R U' R' U' F' U F" data-cap="Top to right"></div>
+        </div>
+      </div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">4</div><h4>Make the yellow cross 🟨➕</h4></div>
+        <p class="goal">Goal: a yellow plus on top (the corners don't matter yet).</p>
+        <p class="note" style="margin:0 0 4px">Algorithm: <span class="alg">F U R U' R' F'</span></p>
+        <ol>
+          <li><b>Dot</b> (only the centre is yellow): do it once from any side.</li>
+          <li><b>Line</b>: do it once from any side. You will get an L.</li>
+          <li><b>L shape</b>: hold the L so its two yellow edges are at the <b>back</b> and on the <b>left</b>. Do it once, and the cross is done.</li>
+        </ol>
+        <div class="players"><div class="cubeplay" data-setup="x2" data-alg="F U R U' R' F'" data-cap="L at the back-left becomes the cross"></div></div>
+      </div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">5</div><h4>Finish the yellow face</h4></div>
+        <p class="goal">Goal: the whole top is yellow.</p>
+        <p class="note" style="margin:0 0 4px">Algorithm: <span class="alg">R U R' U R U2 R'</span> (repeat until the top is yellow, at most 3 times)</p>
+        <ol>
+          <li>Count the corners with yellow on <b>top</b>, then hold the cube like this before each go:</li>
+          <li><b>No yellow corner</b>: the front-left corner has yellow facing <b>left</b>.</li>
+          <li><b>One yellow corner</b>: put it at the <b>front left</b>.</li>
+          <li><b>Two yellow corners</b>: the front-left corner has yellow facing the <b>front</b>.</li>
+        </ol>
+        <div class="players"><div class="cubeplay" data-setup="x2" data-alg="R U R' U R U2 R'" data-cap="One yellow corner at the front left"></div></div>
+      </div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">6</div><h4>Corners: the U shape on every side</h4></div>
+        <p class="goal">Goal: each side's two top corners are the same colour (a "U shape", or "headlights").</p>
+        <p class="note" style="margin:0 0 4px">Algorithm: <span class="alg">R' F R' B2 R F' R' B2 R2</span></p>
+        <ol>
+          <li>Look for a side whose two top corners match: that is a U shape.</li>
+          <li>Hold that side at the <b>back</b>, then do the algorithm.</li>
+          <li>No U shape anywhere? Do it once from any side, then look again.</li>
+          <li>Once all four sides have a U shape, turn <b>U</b> until the corners match their side centres.</li>
+        </ol>
+        <div class="players"><div class="cubeplay" data-setup="x2" data-alg="R' F R' B2 R F' R' B2 R2" data-cap="U shape held at the back"></div></div>
+      </div>
+
+      <div class="lesson">
+        <div class="head"><div class="num">7</div><h4>Final step: solve the cube 🎉</h4></div>
+        <p class="goal">Goal: solved!</p>
+        <p class="note" style="margin:0 0 4px">Algorithm: <span class="alg">R2 U R U R' U' R' U' R' U R'</span></p>
+        <ol>
+          <li>Find the side that is <b>fully solved</b> (its whole top row matches) and hold it at the <b>back</b>.</li>
+          <li>Do the algorithm. If the cube isn't solved yet, do it once more, holding the solved side at the back again.</li>
+          <li>No solved side? Do it once from any side. One side will be solved; then go back to point 1.</li>
+        </ol>
+        <div class="callout">In your old notes this is written <code>R2 U R U R1 U1 R1 U1 R1 U R1</code>. There, <b>R1</b> and <b>U1</b> mean <b>R'</b> and <b>U'</b>.</div>
+        <div class="players"><div class="cubeplay" data-setup="x2" data-alg="R2 U R U R' U' R' U' R' U R'" data-cap="Solved side held at the back"></div></div>
+      </div>
+
+      <h2 class="sub" id="cube-speed">3 · Get faster</h2>
+      <p class="note">Learn the method first, then get faster. Pick one drill a day and spend about 15 minutes on it.</p>
+      <div class="ladder">
+        <div><b>First solve</b>with this page open</div>
+        <div><b>No page</b>solve from memory</div>
+        <div><b>Under 2 min</b>steady practice</div>
+        <div><b>Under 1 min</b>drills + look-ahead</div>
+      </div>
+      <div class="grid" style="--min:220px">
+        <div class="drill"><div class="big">🔤</div><h4>Moves without looking</h4><p>Read an algorithm aloud and do it with your eyes closed.</p><p class="how">5 min · until no move needs thought</p></div>
+        <div class="drill"><div class="big">🔁</div><h4>Algorithm reps</h4><p>Do each algorithm 20 times in a row, slowly at first. A solved cube comes back after 6 × <b>R U R' U'</b>, so you can check yourself.</p><p class="how">10 min · one algorithm a day</p></div>
+        <div class="drill"><div class="big">👆</div><h4>Finger tricks</h4><p>Turn <b>U</b> with a right-index flick and <b>R</b> with your wrist. Don't move your grip between moves.</p><p class="how">Time 10 × R U R' U' and beat yesterday's time</p></div>
+        <div class="drill"><div class="big">➕</div><h4>Cross only</h4><p>Scramble the cube and solve only the white cross. Plan all 4 edges before your first turn.</p><p class="how">10 crosses · aim for 8 moves or fewer</p></div>
+        <div class="drill"><div class="big">🐢</div><h4>Slow, no stopping</h4><p>Solve at half speed without pausing. While you turn, look for the next piece. This is called "look-ahead".</p><p class="how">3 slow solves a day</p></div>
+        <div class="drill"><div class="big">⏱️</div><h4>5 timed solves</h4><p>Use the timer below. Your "average of 5" leaves out the best and the worst time. Use it to track your progress.</p><p class="how">Once a day · write your best average in your journal</p></div>
+      </div>
+      <div class="callout">Your steps 4–7 are the "4-look last layer" that many speedcubers start with. Once you are steady under 1:30, the next upgrade is learning the 7 yellow-corner cases, so step 5 always takes one go instead of up to 3. Not before: speed comes from smooth turning first.</div>
+
+      <h2 class="sub" id="cube-timer">4 · Timer</h2>
+      <div class="timer" id="timer">
+        <div class="cap note">Scramble: hold <b>white on top, green at the front</b>, then do these moves.</div>
+        <div class="scr" id="scr"></div>
+        <div class="clock" id="clock">0.00</div>
+        <div class="ctrl"><button type="button" class="tbtn main" id="tgo">Start</button><button type="button" class="tbtn" id="tnew">New scramble</button><button type="button" class="tbtn" id="tclear">Clear times</button></div>
+        <p class="note" style="font-size:12.5px">On a computer, press the space bar to start and stop.</p>
+        <div class="stats">
+          <div class="tile"><div class="k">Best</div><div class="v" id="sbest">–</div></div>
+          <div class="tile"><div class="k">Average of 5</div><div class="v" id="sao5">–</div></div>
+          <div class="tile"><div class="k">Solves</div><div class="v" id="scount">0</div></div>
+        </div>
+        <div class="times" id="tlist"></div>
+      </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  // ---------- tiny 3x3 cube engine (math coords: x right, y up, z toward you) ----------
+  const COL = {R:'#c41e3a', L:'#ff7a00', U:'#ffffff', D:'#ffd500', F:'#009e60', B:'#0051ba'};
+  const MV = {R:[0,1,-1], L:[0,-1,1], U:[1,1,-1], D:[1,-1,1], F:[2,1,-1], B:[2,-1,1], x:[0,null,-1], y:[1,null,-1], z:[2,null,-1]};
+  const FACE = [['nx','px'],['ny','py'],['nz','pz']], SIDE = [['L','R'],['D','U'],['B','F']];
+  let MS = 450;
+  try { const v = +localStorage.getItem('cube:speed'); if (v) MS = v; } catch (e) {}
+
+  function rot(a, deg) {
+    const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    return [[[1,0,0],[0,c,-s],[0,s,c]], [[c,0,s],[0,1,0],[-s,0,c]], [[c,-s,0],[s,c,0],[0,0,1]]][a];
+  }
+  const mm = (A, B) => A.map((row, i) => B[0].map((_, j) => row.reduce((t, _, k) => t + A[i][k] * B[k][j], 0)));
+  const mv = (A, v) => A.map(row => row[0] * v[0] + row[1] * v[1] + row[2] * v[2]);
+  const rnd = A => A.map(r => Array.isArray(r) ? r.map(Math.round) : Math.round(r));
+  const parse = alg => (alg || '').trim().split(/\s+/).filter(Boolean);
+  const inv = toks => toks.slice().reverse().map(t => t.endsWith("'") ? t[0] : t.endsWith('2') ? t : t + "'");
+  const angleOf = t => MV[t[0]][2] * (t.endsWith("'") ? -90 : t.endsWith('2') ? 180 : 90);
+
+  function Cube(scene) {
+    const box = document.createElement('div'); box.className = 'cube3'; scene.appendChild(box);
+    let view = {x: -28, y: -38};
+    const setView = () => box.style.transform = `rotateX(${view.x}deg) rotateY(${view.y}deg)`;
+    setView();
+    const cubies = [];
+    for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) {
+      const el = document.createElement('div'); el.className = 'cb';
+      const p = [x, y, z];
+      for (let a = 0; a < 3; a++) for (let k = 0; k < 2; k++) {
+        const f = document.createElement('i'); f.className = FACE[a][k];
+        if (p[a] === (k ? 1 : -1)) f.style.background = COL[SIDE[a][k]];
+        el.appendChild(f);
+      }
+      box.appendChild(el);
+      cubies.push({el, p0: p.slice(), p, m: [[1,0,0],[0,1,0],[0,0,1]]});
+    }
+    const S = () => parseFloat(getComputedStyle(scene).getPropertyValue('--s')) || 44;
+    function draw(c, R) {
+      const M = R ? mm(R, c.m) : c.m, t = R ? mv(R, c.p) : c.p, s = S(), g = [1, -1, 1];
+      const e = (i, j) => g[i] * g[j] * M[i][j];
+      c.el.style.transform = `matrix3d(${e(0,0)},${e(1,0)},${e(2,0)},0,${e(0,1)},${e(1,1)},${e(2,1)},0,${e(0,2)},${e(1,2)},${e(2,2)},0,${t[0]*s},${-t[1]*s},${t[2]*s},1)`;
+    }
+    const sel = t => { const [a, l] = MV[t[0]]; return cubies.filter(c => l === null || Math.round(c.p[a]) === l); };
+    function apply(t) {
+      const R = rnd(rot(MV[t[0]][0], angleOf(t)));
+      sel(t).forEach(c => { c.p = rnd(mv(R, c.p)); c.m = rnd(mm(R, c.m)); draw(c); });
+    }
+    function animate(t) {
+      return new Promise(done => {
+        const list = sel(t), a = MV[t[0]][0], deg = angleOf(t), dur = MS * (Math.abs(deg) > 90 ? 1.4 : 1), t0 = performance.now();
+        (function frame(now) {
+          const k = Math.min((now - t0) / dur, 1), ease = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+          const R = rot(a, deg * ease); list.forEach(c => draw(c, R));
+          if (k < 1) requestAnimationFrame(frame); else { apply(t); done(); }
+        })(t0);
+      });
+    }
+    function reset() { cubies.forEach(c => { c.p = c.p0.slice(); c.m = [[1,0,0],[0,1,0],[0,0,1]]; draw(c); }); }
+    // drag to look around
+    let drag = null;
+    scene.addEventListener('pointerdown', e => { drag = {x: e.clientX, y: e.clientY, v: {...view}}; scene.setPointerCapture(e.pointerId); });
+    scene.addEventListener('pointermove', e => { if (!drag) return; view.y = drag.v.y + (e.clientX - drag.x) * .6; view.x = Math.max(-85, Math.min(85, drag.v.x - (e.clientY - drag.y) * .6)); setView(); });
+    const end = () => drag = null; scene.addEventListener('pointerup', end); scene.addEventListener('pointercancel', end);
+    addEventListener('resize', () => cubies.forEach(c => draw(c)));
+    reset();
+    return {apply, animate, reset};
+  }
+
+  // ---------- step players ----------
+  document.querySelectorAll('.cubeplay[data-alg]').forEach(box => {
+    const toks = parse(box.dataset.alg), setup = parse(box.dataset.setup);
+    box.innerHTML = `<div class="cap">${box.dataset.cap || ''}</div><div class="scene"></div><div class="toks">${toks.map(t => `<span>${t}</span>`).join(' ')}</div>
+      <div class="ctrl"><button type="button" class="main" data-act="play">▶ Play</button><button type="button" data-act="next">Next move ›</button><button type="button" data-act="reset">↺ Again</button></div>`;
+    const cube = Cube(box.querySelector('.scene')), spans = [...box.querySelectorAll('.toks span')], play = box.querySelector('[data-act=play]');
+    let i = 0, busy = false, auto = false;
+    const mark = () => spans.forEach((s, k) => s.className = k < i ? 'done' : k === i && (busy || auto) ? 'cur' : '');
+    function start() { cube.reset(); setup.forEach(cube.apply); inv(toks).forEach(cube.apply); i = 0; auto = false; play.textContent = '▶ Play'; mark(); }
+    async function step() {
+      if (busy || i >= toks.length) return;
+      busy = true; mark(); await cube.animate(toks[i]); i++; busy = false; mark();
+      if (i >= toks.length) { auto = false; play.textContent = '✓ Solved'; }
+    }
+    async function run() { auto = true; play.textContent = '⏸ Pause'; while (auto && i < toks.length) await step(); }
+    box.addEventListener('click', e => {
+      const act = e.target.dataset && e.target.dataset.act; if (!act) return;
+      if (act === 'play') { if (i >= toks.length) { start(); run(); } else if (auto) { auto = false; play.textContent = '▶ Play'; } else run(); }
+      if (act === 'next') { auto = false; play.textContent = i >= toks.length ? '✓ Solved' : '▶ Play'; step(); }
+      if (act === 'reset') { if (!busy) start(); }
+    });
+    start();
+  });
+
+  // ---------- notation cube ----------
+  const nb = document.getElementById('notation');
+  if (nb) {
+    const scene = document.createElement('div'); scene.className = 'scene'; nb.insertBefore(scene, nb.querySelector('.moves'));
+    const cube = Cube(scene), q = []; let busy = false;
+    nb.querySelector('.moves').innerHTML = ['R','L','U','D','F','B'].flatMap(f => [f, f + "'"]).map(t => `<button type="button" data-t="${t}">${t}</button>`).join('');
+    const pump = async () => { if (busy) return; busy = true; while (q.length) await cube.animate(q.shift()); busy = false; };
+    nb.addEventListener('click', e => {
+      const t = e.target.dataset.t; if (t) { q.push(t); pump(); }
+      if (e.target.dataset.act === 'reset' && !busy) cube.reset();
+    });
+  }
+
+  // ---------- speed buttons ----------
+  const sb = document.getElementById('speedbar');
+  const markSpeed = () => sb.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.ms === MS));
+  sb.addEventListener('click', e => { if (e.target.dataset.ms) { MS = +e.target.dataset.ms; try { localStorage.setItem('cube:speed', MS); } catch (x) {} markSpeed(); } });
+  markSpeed();
+
+  // ---------- timer ----------
+  const $ = id => document.getElementById(id), KEY = 'cube:times';
+  let times = []; try { times = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  let t0 = 0, raf = 0, running = false;
+  const fmt = s => s >= 60 ? Math.floor(s / 60) + ':' + (s % 60).toFixed(2).padStart(5, '0') : s.toFixed(2);
+  function scramble() {
+    const F = ['R','L','U','D','F','B'], ax = {R:0,L:0,U:1,D:1,F:2,B:2}, out = [];
+    while (out.length < 20) {
+      const f = F[Math.floor(Math.random() * 6)], a = out[out.length - 1], b = out[out.length - 2];
+      if (a && a[0] === f) continue;
+      if (a && b && ax[a[0]] === ax[f] && ax[b[0]] === ax[f]) continue;
+      out.push(f + ['', "'", '2'][Math.floor(Math.random() * 3)]);
+    }
+    $('scr').textContent = out.join(' ');
+  }
+  function stats() {
+    $('scount').textContent = times.length;
+    $('sbest').textContent = times.length ? fmt(Math.min(...times)) : '–';
+    if (times.length >= 5) { const l = times.slice(-5).sort((a, b) => a - b).slice(1, 4); $('sao5').textContent = fmt(l.reduce((a, b) => a + b) / 3); } else $('sao5').textContent = '–';
+    $('tlist').textContent = times.length ? 'Last: ' + times.slice(-12).reverse().map(fmt).join(' · ') : 'No solves yet.';
+  }
+  function toggle() {
+    if (!running) { running = true; t0 = performance.now(); $('clock').classList.add('run'); $('tgo').textContent = 'Stop';
+      (function tick() { $('clock').textContent = fmt((performance.now() - t0) / 1000); raf = requestAnimationFrame(tick); })(); }
+    else { running = false; cancelAnimationFrame(raf); const s = (performance.now() - t0) / 1000; $('clock').textContent = fmt(s); $('clock').classList.remove('run'); $('tgo').textContent = 'Start';
+      times.push(+s.toFixed(2)); try { localStorage.setItem(KEY, JSON.stringify(times.slice(-200))); } catch (e) {} stats(); scramble(); }
+  }
+  $('tgo').addEventListener('click', toggle);
+  $('tnew').addEventListener('click', scramble);
+  $('tclear').addEventListener('click', () => { if (confirm('Clear all saved times on this device?')) { times = []; try { localStorage.removeItem(KEY); } catch (e) {} stats(); } });
+  addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); toggle(); } });
+  scramble(); stats();
+
+  // ---------- step progress ("I can do this step"), read by the Learning hub ----------
+  const LK = 'cube:learned', lessons = [...document.querySelectorAll('.lesson')];
+  let learned = []; try { learned = JSON.parse(localStorage.getItem(LK) || '[]'); } catch (e) {}
+  const dots = document.getElementById('stepdots');
+  lessons.forEach((l, k) => {
+    l.id = 'step-' + (k + 1);
+    const lab = document.createElement('label'); lab.className = 'learned';
+    lab.innerHTML = '<input type="checkbox"> I can do this step';
+    l.appendChild(lab);
+    lab.querySelector('input').addEventListener('change', e => {
+      learned = learned.filter(n => n !== k + 1); if (e.target.checked) learned.push(k + 1);
+      try { localStorage.setItem(LK, JSON.stringify(learned)); } catch (x) {} paint();
+    });
+  });
+  function paint() {
+    dots.innerHTML = lessons.map((_, k) => `<a href="#step-${k + 1}" class="${learned.includes(k + 1) ? 'ok' : ''}" title="Step ${k + 1}">${k + 1}</a>`).join('');
+    lessons.forEach((l, k) => { const on = learned.includes(k + 1); l.classList.toggle('ok', on); l.querySelector('.learned input').checked = on; });
+  }
+  paint();
+
+  // ---------- highlight the part you are reading in the top bar ----------
+  const links = [...document.querySelectorAll('.barnav a')];
+  const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  const onScroll = () => { let k = 0; secs.forEach((h, i) => { if (h && h.getBoundingClientRect().top < 140) k = i; }); links.forEach((a, i) => a.classList.toggle('on', i === k)); };
+  addEventListener('scroll', onScroll, {passive: true}); onScroll();
+})();
+</script>
+</body>
+</html>

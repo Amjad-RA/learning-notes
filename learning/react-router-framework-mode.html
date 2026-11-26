@@ -1,0 +1,1700 @@
+<!doctype html>
+<!-- React Router Framework Mode notes (notes.css + notes.js in this folder, same layout as frontend-system-design.html).
+     Source: reports/React Router 7 framework mode.md (only facts from that report).
+     One <section class="domain"> per topic; sections 1-11 have data-mod, so notes.js adds Done ticks
+     (localStorage rr:done, read by the Learning hub card) and a Practise with Gemini card.
+     Page-only parts (style + script at the end of this file):
+     - figure.dg.loop: looping CSS animations. Each element's plain style is its final state, so reduced motion and print
+       show the finished picture. A Pause / Play button is added; they also pause off screen.
+     - [data-stepper]: step-through diagrams. SVG parts use data-from="k" (shown from step k), data-until="k" (hidden from
+       step k), data-on="k k" (glow on those steps, .hlr rects) and data-at="k" (.pkt packet that moves at step k, by
+       --dx/--dy). The ol.sx-steps cards are the steps; Play, Back, Next and Reset buttons are added by the script.
+     - [data-picker]: rendering picker.  [data-gloss]: glossary filter. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f1f8f2">
+<title>React Router Framework Mode</title>
+<meta name="description" content="Animated, plain-English notes on React Router 7 Framework Mode, the same model in v8 (current, 8.5.3).">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+<script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="stylesheet" href="notes.css">
+<style>
+  /* ---------- Page-only styles (theme variables only, so dark mode works) ---------- */
+  .k { font: 600 .86em var(--mono); color: var(--exam); background: color-mix(in srgb, var(--exam) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--exam) 30%, var(--border)); padding: .02em .4em; border-radius: 5px; overflow-wrap: anywhere; }
+  .an { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--key); background: var(--key-soft); border-radius: 5px; padding: 1px 7px; margin-right: 4px; }
+  /* "For developers" boxes */
+  details.dev { margin: 0 0 18px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+  details.dev > summary { cursor: pointer; padding: 10px 14px; min-height: 44px; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); list-style: none; }
+  details.dev > summary::-webkit-details-marker { display: none; }
+  details.dev > summary::before { content: "</>"; font: 700 11px var(--mono); color: var(--exam); background: color-mix(in srgb, var(--exam) 14%, transparent); padding: 2px 6px; border-radius: 4px; }
+  details.dev[open] > summary { border-bottom: 1px dashed var(--border); }
+  details.dev .dev-body { padding: 10px 14px 4px; font-size: 14.5px; }
+  details.dev pre { margin: 0 0 10px; }
+  /* analogy key map */
+  .km { display: flex; flex-direction: column; gap: 4px; }
+  .km .ico { font-size: 1.6em; line-height: 1; }
+  .km b { font-size: 15px; }
+  .km .to { font-size: 13px; color: var(--muted); }
+  .tile-n { font: 800 1.45rem/1.2 var(--mono); color: var(--exam); display: block; }
+  .tile-l { font-size: 13.5px; color: var(--muted); }
+  /* SVG parts */
+  .dg .bx.inf rect { fill: var(--info-soft); stroke: var(--info); } .dg .bx.inf text.b { fill: var(--info); }
+  .dg text.m.sm, .dg text.sm { font-size: 11px; }
+  .dg [data-from], .dg [data-until] { transition: opacity .45s ease calc(var(--d, 0) * 90ms); }
+  .dg .off { opacity: 0; }
+  .dg .hlr { fill: none; stroke: var(--exam); stroke-width: 2.5; opacity: 0; transition: opacity .3s; }
+  .dg .hlr.lit { opacity: 1; animation: rr-pulse 1.4s ease-in-out infinite; }
+  @keyframes rr-pulse { 50% { stroke-opacity: .3; } }
+  .dg .pkt { opacity: 0; }
+  .dg .hlr-dot { opacity: 0; transition: opacity .3s; } .dg .hlr-dot.lit { opacity: 1; }
+  .dg .pkt circle { fill: var(--exam); stroke: var(--surface); stroke-width: 2; }
+  .dg .pkt.go { animation: rr-pkt 1.3s ease-in-out forwards; }
+  @keyframes rr-pkt { 0% { opacity: 0; transform: translate(0, 0); } 12% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); } }
+  .dg .rr-addrbar { fill: var(--surface); stroke: var(--border); stroke-width: 1.3; }
+  .dg .rr-blank, .dg .rr-frame, .dg .rr-outlet { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .dg .rr-img { fill: color-mix(in srgb, var(--info) 28%, var(--surface)); }
+  .dg .rr-img2 { fill: color-mix(in srgb, var(--key) 32%, var(--surface)); }
+  .dg .rr-soft { fill: var(--surface-2); }
+  .dg .rr-line { stroke: var(--border); stroke-width: 5; stroke-linecap: round; }
+  .dg .rr-ring { fill: color-mix(in srgb, var(--exam) 7%, var(--surface)); stroke: var(--border); stroke-width: 1.3; }
+  .dg .rr-ring.r2 { fill: color-mix(in srgb, var(--exam) 14%, var(--surface)); }
+  .dg .rr-ring.r3 { fill: color-mix(in srgb, var(--exam) 22%, var(--surface)); }
+  .dg .rr-ring.r4 { fill: color-mix(in srgb, var(--exam) 34%, var(--surface)); }
+  .dg .rr-lbars rect, .dg .rr-bar { fill: color-mix(in srgb, var(--exam) 55%, var(--surface)); }
+  .dg .rr-bar.wf { fill: color-mix(in srgb, var(--key) 60%, var(--surface)); }
+  .dg .rr-lbars rect, .dg .rr-bar, .dg .rr-progress { transform-box: fill-box; transform-origin: left center; }
+  .dg .rr-lbars.lit rect { animation: rr-grow 1s ease-out both; }
+  @keyframes rr-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .dg .rr-progress { fill: var(--info); animation: rr-load 1.2s ease-in-out infinite; }
+  @keyframes rr-load { from { transform: scaleX(.08); } to { transform: scaleX(1); } }
+  .dg .rr-field { fill: var(--surface); stroke: var(--border); }
+  .dg .rr-btn { fill: var(--exam); }
+  .dg text.on-btn { fill: var(--on-accent); font-weight: 650; font-size: 11.5px; }
+  .dg .rr-dcard { fill: var(--surface-2); stroke: var(--border); }
+  .dg .rr-flash.lit rect { animation: rr-flash 1.2s ease-in-out 2; }
+  @keyframes rr-flash { 50% { fill: var(--tip-soft); stroke: var(--tip); } }
+  .dg .rr-click { opacity: 0; fill: none; stroke: var(--exam); stroke-width: 2; transform-box: fill-box; transform-origin: center; }
+  .dg .rr-click.lit { opacity: 1; animation: rr-ring 1s ease-out infinite; }
+  @keyframes rr-ring { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+  .dg .rr-term { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.3; }
+  .dg .rr-tdot { fill: var(--border); }
+  .dg .rr-bundle { fill: none; stroke: var(--info); stroke-width: 1.6; stroke-dasharray: 6 4; }
+  .dg .rr-shield { fill: var(--tip); }
+  .dg .rr-spark { fill: var(--trap); }
+  .dg .sw-config { fill: var(--key); } .dg .sw-routing { fill: var(--exam); } .dg .sw-doc { fill: var(--info); }
+  .dg .sw-page { fill: var(--tip); } .dg .sw-hidden { fill: var(--muted); opacity: .6; }
+  .dg text.dim { fill: var(--muted); }
+  /* restaurant */
+  .dg .r-person circle { fill: var(--info); }
+  .dg .r-person path { stroke: var(--info); stroke-width: 3.5; fill: none; stroke-linecap: round; }
+  .dg .r-wood { fill: var(--key); }
+  .dg .r-leg { stroke: var(--key); stroke-width: 4; fill: none; stroke-linecap: round; }
+  .dg .r-knob { fill: var(--exam); }
+  .dg .r-burner { fill: none; stroke: var(--trap); stroke-width: 2; }
+  .dg .r-steam path { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linecap: round; opacity: .6; }
+  .dg .r-slip rect { fill: var(--surface); stroke: var(--key); stroke-width: 1.5; } .dg .r-slip path { stroke: var(--key); stroke-width: 1.4; }
+  .dg .r-plate ellipse { fill: var(--surface); stroke: var(--muted); stroke-width: 1.5; } .dg .r-plate circle { fill: var(--tip); }
+  .loop .r-diner { transform: translate(95px, 0); animation: r-walk 9s ease-in-out infinite; }
+  @keyframes r-walk { 0%, 4% { transform: translate(0, 0); opacity: 0; } 8% { opacity: 1; transform: translate(0, 0); } 30%, 100% { transform: translate(95px, 0); opacity: 1; } }
+  .loop .r-slip { transform: translate(154px, -32px); animation: r-slip 9s ease-in-out infinite; }
+  @keyframes r-slip { 0%, 32% { transform: translate(0, 0); opacity: 0; } 36% { opacity: 1; transform: translate(0, 0); } 56% { transform: translate(154px, -32px); opacity: 1; } 62%, 100% { transform: translate(154px, -32px); opacity: 0; } }
+  .loop .r-plate { transform: translate(-139px, -4px); animation: r-plate 9s ease-in-out infinite; }
+  @keyframes r-plate { 0%, 58% { transform: translate(0, 0); opacity: 0; } 62% { opacity: 1; transform: translate(0, 0); } 84%, 100% { transform: translate(-139px, -4px); opacity: 1; } }
+  .loop .r-steam path { animation: r-steam 2.2s ease-in-out infinite; }
+  .loop .r-steam path:nth-child(2) { animation-delay: -.7s; } .loop .r-steam path:nth-child(3) { animation-delay: -1.4s; }
+  @keyframes r-steam { 0% { opacity: 0; transform: translateY(6px); } 50% { opacity: .7; } 100% { opacity: 0; transform: translateY(-8px); } }
+  /* nested dolls */
+  .loop .doll { transform-box: fill-box; transform-origin: center; }
+  .loop .doll.d1 { animation: d-in1 8s ease-out infinite; }
+  .loop .doll.d2 { animation: d-in2 8s ease-out infinite; }
+  .loop .doll.d3 { animation: d-in3 8s ease-out infinite; }
+  @keyframes d-in1 { 0% { opacity: 0; transform: scale(.85); } 12%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  @keyframes d-in2 { 0%, 25% { opacity: 0; transform: scale(.9); } 37%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  @keyframes d-in3 { 0%, 50% { opacity: 0; transform: scale(.94); } 62%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  /* recipe card: server column stays on the server */
+  .loop .rc-srv { opacity: .45; animation: rc-dim 7s ease-in-out infinite; }
+  @keyframes rc-dim { 0%, 30% { opacity: 1; } 50%, 100% { opacity: .45; } }
+  .loop .rc-note { animation: rc-note 7s ease-in-out infinite; }
+  @keyframes rc-note { 0%, 40% { opacity: 0; } 55%, 100% { opacity: 1; } }
+  /* error bubbling */
+  .loop .eb-spark { opacity: 0; transform: translate(0, -78px); animation: eb-spark 7s ease-in-out infinite; }
+  @keyframes eb-spark { 0%, 10% { opacity: 0; transform: translate(0, 0); } 14% { opacity: 1; transform: translate(0, 0); } 40% { opacity: 1; transform: translate(0, -78px); } 46%, 100% { opacity: 0; transform: translate(0, -78px); } }
+  .loop .eb-err { animation: eb-err 7s ease-in-out infinite; }
+  @keyframes eb-err { 0%, 42% { opacity: 0; } 48%, 100% { opacity: 1; } }
+  /* prefetch */
+  .loop .pf-cur { transform: translate(0, 0); animation: pf-cur 7s ease-in-out infinite; }
+  @keyframes pf-cur { 0% { transform: translate(120px, 40px); opacity: 0; } 6% { opacity: 1; } 28%, 100% { transform: translate(0, 0); opacity: 1; } }
+  .loop .pf-pk { opacity: 0; animation: pf-pk 7s ease-in-out infinite; }
+  @keyframes pf-pk { 0%, 32% { opacity: 0; transform: translate(0, 0); } 36% { opacity: 1; } 58% { opacity: 1; transform: translate(-150px, 0); } 62%, 100% { opacity: 0; transform: translate(-150px, 0); } }
+  .loop .pf-ready { animation: pf-ready 7s ease-in-out infinite; }
+  @keyframes pf-ready { 0%, 58% { opacity: 0; } 62%, 100% { opacity: 1; } }
+  .loop .pf-click { opacity: 0; transform-box: fill-box; transform-origin: center; animation: pf-click 7s ease-out infinite; }
+  @keyframes pf-click { 0%, 78% { opacity: 0; transform: scale(.4); } 80% { opacity: 1; } 92%, 100% { opacity: 0; transform: scale(1.8); } }
+  /* waterfall vs parallel */
+  .loop .wf1 { animation: wf1 6s ease-out infinite; } .loop .wf2 { animation: wf2 6s ease-out infinite; } .loop .wf3 { animation: wf3 6s ease-out infinite; }
+  .loop .par { animation: wf1 6s ease-out infinite; }
+  @keyframes wf1 { 0% { transform: scaleX(0); } 15%, 100% { transform: scaleX(1); } }
+  @keyframes wf2 { 0%, 15% { transform: scaleX(0); } 30%, 100% { transform: scaleX(1); } }
+  @keyframes wf3 { 0%, 30% { transform: scaleX(0); } 45%, 100% { transform: scaleX(1); } }
+  .loop .ready-par { animation: rd-par 6s infinite; } .loop .ready-wf { animation: rd-wf 6s infinite; }
+  @keyframes rd-par { 0%, 15% { opacity: 0; } 18%, 100% { opacity: 1; } }
+  @keyframes rd-wf { 0%, 45% { opacity: 0; } 48%, 100% { opacity: 1; } }
+  /* streaming */
+  .loop .st-wait { opacity: 0; animation: st-wait 7s infinite; }
+  @keyframes st-wait { 0%, 55% { opacity: 1; } 58%, 100% { opacity: 0; } }
+  .loop .st-spin { transform-box: fill-box; transform-origin: center; animation: st-spin 1s linear infinite; }
+  @keyframes st-spin { to { transform: rotate(360deg); } }
+  .loop .st-rev { animation: st-rev 7s infinite; }
+  @keyframes st-rev { 0%, 58% { opacity: 0; } 64%, 100% { opacity: 1; } }
+  .dg .st-arc { fill: none; stroke: var(--exam); stroke-width: 3; stroke-linecap: round; }
+  /* revalidation cycle */
+  .loop .rv-spin { transform-origin: 200px 140px; animation: rv-spin 8s linear infinite; }
+  @keyframes rv-spin { to { transform: rotate(360deg); } }
+  .loop .rv-g0 { animation: rv-g0 8s linear infinite; } .loop .rv-g1 { animation: rv-g1 8s linear infinite; }
+  .loop .rv-g2 { animation: rv-g2 8s linear infinite; } .loop .rv-g3 { animation: rv-g3 8s linear infinite; }
+  @keyframes rv-g0 { 0% { opacity: 1; } 8%, 92% { opacity: 0; } 100% { opacity: 1; } }
+  @keyframes rv-g1 { 0%, 17% { opacity: 0; } 25% { opacity: 1; } 33%, 100% { opacity: 0; } }
+  @keyframes rv-g2 { 0%, 42% { opacity: 0; } 50% { opacity: 1; } 58%, 100% { opacity: 0; } }
+  @keyframes rv-g3 { 0%, 67% { opacity: 0; } 75% { opacity: 1; } 83%, 100% { opacity: 0; } }
+  .loop .rv-flash rect { animation: rv-flash 8s linear infinite; }
+  @keyframes rv-flash { 0%, 48% { fill: var(--surface-2); stroke: var(--border); } 53%, 62% { fill: var(--tip-soft); stroke: var(--tip); } 68%, 100% { fill: var(--surface-2); stroke: var(--border); } }
+  .dg .rv-dot { fill: var(--exam); stroke: var(--surface); stroke-width: 2.5; }
+  /* Form vs fetcher */
+  .loop .ff-old { opacity: 0; animation: ff-old 8s infinite; } .loop .ff-new { animation: ff-new 8s infinite; }
+  @keyframes ff-old { 0%, 38% { opacity: 1; } 42%, 100% { opacity: 0; } }
+  @keyframes ff-new { 0%, 38% { opacity: 0; } 42%, 100% { opacity: 1; } }
+  .loop .ff-pk { opacity: 0; animation: ff-pk 8s ease-in-out infinite; }
+  @keyframes ff-pk { 0%, 8% { opacity: 0; transform: translate(0, 0); } 10% { opacity: 1; } 34% { transform: translate(52px, 0); opacity: 1; } 40% { transform: translate(52px, 0); } 64% { transform: translate(0, 0); opacity: 1; } 68%, 100% { opacity: 0; transform: translate(0, 0); } }
+  .loop .ff-unread { opacity: 0; animation: ff-unread 8s infinite; } .loop .ff-read { animation: ff-read 8s infinite; }
+  @keyframes ff-unread { 0%, 64% { opacity: 1; } 68%, 100% { opacity: 0; } }
+  @keyframes ff-read { 0%, 64% { opacity: 0; } 68%, 100% { opacity: 1; } }
+  /* deploy */
+  .loop .dp-l { opacity: 0; animation: dp-l 7s ease-in-out infinite; } .loop .dp-r { opacity: 0; animation: dp-r 7s ease-in-out infinite; }
+  @keyframes dp-l { 0% { opacity: 0; transform: translate(0, 0); } 5% { opacity: 1; } 25%, 35% { transform: translate(-100px, 58px); opacity: 1; } 60% { transform: translate(-100px, 132px); opacity: 1; } 66%, 100% { opacity: 0; transform: translate(-100px, 132px); } }
+  @keyframes dp-r { 0% { opacity: 0; transform: translate(0, 0); } 5% { opacity: 1; } 25%, 35% { transform: translate(100px, 58px); opacity: 1; } 60% { transform: translate(100px, 132px); opacity: 1; } 66%, 100% { opacity: 0; transform: translate(100px, 132px); } }
+  .loop .dp-sign { animation: dp-sign 7s ease-in-out infinite; }
+  @keyframes dp-sign { 0%, 60% { opacity: .35; } 66%, 100% { opacity: 1; } }
+  /* v8 flags */
+  .dg .fl-track { fill: var(--surface-2); stroke: var(--border); }
+  .dg .fl-knob { fill: var(--muted); }
+  .dg .fl-badge rect { fill: var(--tip-soft); stroke: var(--tip); } .dg .fl-badge text { fill: var(--tip); font-weight: 700; font-size: 12px; }
+  .loop .fl-row { --dl: calc(var(--i, 0) * .5s - 10s); }
+  .loop .fl-tog { opacity: 0; animation: fl-tog 10s infinite; animation-delay: var(--dl); }
+  .loop .fl-tog .fl-knob { animation: fl-knob 10s ease-in-out infinite; animation-delay: var(--dl); }
+  .loop .fl-tog .fl-track { animation: fl-track 10s infinite; animation-delay: var(--dl); }
+  .loop .fl-badge { animation: fl-badge 10s infinite; animation-delay: var(--dl); }
+  @keyframes fl-tog { 0%, 58% { opacity: 1; } 64%, 100% { opacity: 0; } }
+  @keyframes fl-knob { 0%, 8% { transform: translateX(0); fill: var(--muted); } 14%, 100% { transform: translateX(20px); fill: var(--on-accent); } }
+  @keyframes fl-track { 0%, 8% { fill: var(--surface-2); } 14%, 100% { fill: var(--exam); } }
+  @keyframes fl-badge { 0%, 62% { opacity: 0; } 68%, 100% { opacity: 1; } }
+  /* rendering picker */
+  .dg .rd-row { fill: transparent; stroke: transparent; transition: fill .25s, stroke .25s; }
+  .dg .rd-row.picked { fill: color-mix(in srgb, var(--exam) 14%, var(--surface)); stroke: var(--exam); }
+  .dg .rd-made { fill: color-mix(in srgb, var(--exam) 18%, var(--surface)); stroke: var(--exam); stroke-width: 1.8; }
+  .dg .rd-shell { fill: var(--surface); stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3; }
+  .card.picked { border-color: var(--exam); box-shadow: 0 0 0 2px var(--exam), var(--shadow); }
+  .picker { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 0 0 18px; }
+  .picker .pk-q { font-weight: 700; margin-bottom: 8px; }
+  .picker-btns { display: grid; gap: 8px; }
+  .picker-btns button { text-align: left; min-height: 46px; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font: 600 14.5px var(--font); cursor: pointer; }
+  .picker-btns button[aria-pressed="true"] { border-color: var(--exam); background: color-mix(in srgb, var(--exam) 14%, var(--surface)); }
+  .picker .pk-out { margin: 10px 0 0; font-size: 14.5px; }
+  @media (min-width: 720px) { .picker-btns { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  /* "who starts the move" cards */
+  .who .card { --i: 0; transition: border-color .2s; }
+  .who .card { animation: who-glow 8s infinite; animation-delay: calc(var(--i) * 2s - 8s); }
+  @keyframes who-glow { 0%, 22% { border-color: var(--exam); box-shadow: 0 0 0 2px color-mix(in srgb, var(--exam) 45%, transparent), var(--shadow); } 26%, 100% { border-color: var(--border); box-shadow: var(--shadow); } }
+  .who .card .apis { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  /* step-throughs */
+  .sx { margin: 6px 0 24px; }
+  .sx > figure.dg { margin-bottom: 4px; }
+  .sx-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 10px; }
+  .sx-ctl button { min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 600 13.5px var(--font); cursor: pointer; }
+  .sx-ctl button:hover { border-color: var(--exam); }
+  .sx-ctl button.pri { background: var(--exam); border-color: var(--exam); color: var(--on-accent); }
+  .sx-ctl .sx-at { font: 600 12.5px var(--mono); color: var(--muted); margin-left: auto; }
+  ol.sx-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  ol.sx-steps li { position: relative; margin: 0; padding: 9px 12px 9px 48px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; font-size: 14.5px; line-height: 1.45; transition: background .2s, border-color .2s; }
+  ol.sx-steps li .n { position: absolute; left: 10px; top: 9px; min-width: 28px; height: 22px; padding: 0 5px; border-radius: 11px; display: grid; place-items: center; font: 700 11px var(--mono); background: var(--surface-2); color: var(--muted); }
+  ol.sx-steps li .an-line { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  ol.sx-steps li .an-line::before { content: "🍽 "; }
+  ol.sx-steps li.now { border-color: var(--exam); background: color-mix(in srgb, var(--exam) 12%, var(--surface)); box-shadow: var(--shadow); }
+  ol.sx-steps li.now .n { background: var(--exam); color: var(--on-accent); }
+  ol.sx-steps li.past .n { background: var(--tip-soft); color: var(--tip); }
+  @media (min-width: 1100px) {
+    .sx { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+    .sx > figure.dg { position: sticky; top: 90px; }
+  }
+  /* glossary groups */
+  .gloss-group h3.sub { margin-top: 18px; }
+  /* sources */
+  .src-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+  .src-grid ul { margin: 0; padding-left: 1.1em; font-size: 14.5px; }
+  /* loop controls */
+  .loop.paused *, .loop.idle * { animation-play-state: paused !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .loop:not(.force) *, .who .card, .sx *, .sx-steps li { animation: none !important; transition: none !important; }
+    .dg .pkt { display: none; }
+  }
+  @media print {
+    .loop *, .sx *, .who .card { animation: none !important; transition: none !important; }
+    .sx-ctl, .anim-ctl, .picker-btns, .search[data-gloss] { display: none !important; }
+    .dg .off { opacity: 1 !important; }
+    .dg [data-until] { display: none !important; }
+    .dg .hlr, .dg .pkt, .dg .rr-click { display: none !important; }
+    ol.sx-steps li { break-inside: avoid; }
+    details.dev { display: none; }
+    .sx > figure.dg { position: static; }
+  }
+</style>
+</head>
+<body data-notes="rr">
+  <header class="site-header">
+    <div class="inner">
+      <a class="brand" href="../index.html"><span class="logo">🧭</span> React Router notes</a>
+      <nav class="nav">
+        <a href="../index.html">Learning</a>
+        <a href="frontend-system-design.html">FSD notes</a>
+        <a href="react-router-framework-mode.html" aria-current="page">React Router</a>
+        <a href="#rr8-journeys">Journeys</a>
+        <a href="#rr13-quiz">Quiz</a>
+        <a href="https://reactrouter.com/home" target="_blank" rel="noopener">Docs ↗</a>
+      </nav>
+      <div class="tools">
+        <button class="icon-btn print" type="button" onclick="window.print()" aria-label="Print or save as PDF">🖨 PDF</button>
+        <button class="icon-btn" data-theme-toggle type="button"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="hero">
+      <span class="exam-code">RR · v7 → v8</span>
+      <h1>React Router Framework Mode</h1>
+      <p class="lead">React Router 7 Framework Mode, <b>the same model in v8</b> (current, 8.5.3). It is a full toolkit for building websites with React. Each section starts <b>in plain words</b> with a restaurant analogy, then shows the real name in a small chip like <code class="k">loader</code>. Press <b>Play</b> on the step-through diagrams. Code is optional, hidden under <b>For developers</b>.</p>
+      <div class="meta-row">
+        <span class="meta">Sections: <b>13</b></span>
+        <span class="meta">Looping animations: <b>12</b></span>
+        <span class="meta">Step-throughs: <b>6</b></span>
+        <span class="meta">Current version: <b>8.5.3</b></span>
+        <span class="meta">Released: <b>24 Nov 2026</b></span>
+        <span class="meta">Done: <b data-done-count>0 of 11</b></span>
+      </div>
+      <p class="source-note">Built only from the research report <code>reports/React Router 7 framework mode.md</code>, which cites the docs at <a href="https://reactrouter.com/home" target="_blank" rel="noopener">reactrouter.com</a>. All sources are listed at the end.</p>
+    </div>
+
+    <div class="with-toc">
+      <aside class="toc">
+        <div class="toc-title">Sections</div>
+        <nav data-toc></nav>
+        <div class="progress" data-progress-self><i></i></div>
+        <div class="progress-label"></div>
+      </aside>
+
+      <div>
+        <input class="search" type="search" placeholder="Filter sections, e.g. loader, fetcher, SPA, middleware…" data-search aria-label="Filter sections">
+
+        <!-- ================================================================ 1 -->
+        <section class="domain" id="rr1-big-picture" data-mod="1" data-short="The big picture">
+          <div class="domain-head"><span class="domain-num">1</span><h2>The big picture</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Think of a website as a <b>restaurant</b>. Each web address is a table. Each table has a recipe card that says what to cook, how to take orders and what to do if something burns. React Router Framework Mode is the restaurant <b>with the kitchen, waiters and front door already built</b>.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Framework</dt><dd>A ready-made toolkit that decides how the parts of an app fit together.</dd>
+              <dt>Route</dt><dd>One web address and the file that handles it.</dd>
+              <dt>Route module</dt><dd>That file: it holds the screen, the data fetching, the saving and the error handling.</dd>
+              <dt>Loader</dt><dd>Code that fetches a page's data before the page shows.</dd>
+              <dt>Action</dt><dd>Code that handles a form when someone submits it.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>1.1</span> The restaurant</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 250" role="img" aria-label="A diner walks in to table 1, an order slip flies to the kitchen, and a plate comes back to the table" xmlns="http://www.w3.org/2000/svg">
+                <path class="ln ax" d="M6,200 H394"/>
+                <g class="bx a"><rect x="10" y="74" width="50" height="126" rx="6"/></g>
+                <circle class="r-knob" cx="50" cy="140" r="3"/>
+                <text x="35" y="64" class="b" text-anchor="middle">Door</text>
+                <g class="bx warn"><rect x="290" y="34" width="102" height="166" rx="8"/><text x="341" y="56" class="b" text-anchor="middle">Kitchen</text></g>
+                <g class="r-steam"><path d="M318,128 q6,-8 0,-16 q-6,-8 0,-16"/><path d="M341,128 q6,-8 0,-16 q-6,-8 0,-16"/><path d="M364,128 q6,-8 0,-16 q-6,-8 0,-16"/></g>
+                <rect class="rr-soft" x="302" y="160" width="78" height="40" rx="4"/>
+                <circle class="r-burner" cx="322" cy="170" r="6"/><circle class="r-burner" cx="360" cy="170" r="6"/>
+                <g class="bx"><rect x="170" y="74" width="64" height="44" rx="5"/></g>
+                <path class="ln" d="M180,88 H224 M180,98 H224 M180,108 H210"/>
+                <text x="202" y="66" class="b" text-anchor="middle">Recipe card</text>
+                <path class="ln d" d="M202,118 V150"/>
+                <rect class="r-wood" x="150" y="150" width="104" height="9" rx="3"/>
+                <path class="r-leg" d="M162,159 V200 M242,159 V200"/>
+                <g class="bx a"><rect x="182" y="166" width="40" height="18" rx="4"/><text x="202" y="179" class="m" text-anchor="middle">#1</text></g>
+                <g class="r-diner r-person"><circle cx="40" cy="150" r="9"/><path d="M40,160 V182 M40,182 L33,199 M40,182 L47,199 M29,168 H51"/></g>
+                <g class="r-slip"><rect x="150" y="124" width="22" height="16" rx="2"/><path d="M154,130 H168 M154,135 H164"/></g>
+                <g class="r-plate"><ellipse cx="341" cy="150" rx="17" ry="5"/><circle cx="341" cy="144" r="6"/></g>
+                <text x="135" y="218" class="s" text-anchor="middle">Diner</text>
+                <text x="215" y="218" class="s" text-anchor="middle">Table</text>
+                <text x="200" y="242" class="s" text-anchor="middle">Table #1 = the web address /products/1</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the diner (browser) walks in to table 1 (a web address). An order slip (action) flies to the kitchen, and the kitchen (loader) sends out a plate.</figcaption>
+          </figure>
+          <div class="grid">
+            <div class="card km"><span class="ico">🏠</span><b>The restaurant</b><span class="to">= the website</span></div>
+            <div class="card km"><span class="ico">🔢</span><b>A table number</b><span class="to">= a web address (URL)</span></div>
+            <div class="card km"><span class="ico">📇</span><b>The recipe card</b><span class="to">= the <code class="k">route module</code> file</span></div>
+            <div class="card km"><span class="ico">🍳</span><b>The kitchen preparing the plate</b><span class="to">= the <code class="k">loader</code></span></div>
+            <div class="card km"><span class="ico">🧾</span><b>The order slip</b><span class="to">= the <code class="k">action</code></span></div>
+            <div class="card km"><span class="ico">🧑</span><b>The diner</b><span class="to">= the browser</span></div>
+          </div>
+
+          <h3 class="sub"><span>1.2</span> The one big idea</h3>
+          <div class="grid">
+            <div class="card accent"><h3><span class="ico">🗄️</span> Server = the truth</h3><p>The real data lives on the server.</p></div>
+            <div class="card accent"><h3><span class="ico">📋</span> Browser = a copy</h3><p>The browser only keeps a copy (a cache).</p></div>
+            <div class="card accent"><h3><span class="ico">🔄</span> Auto refresh</h3><p>After every successful save, React Router reloads the page's data for you.</p></div>
+          </div>
+          <div class="callout key"><div><strong class="label">Why it matters</strong>You rarely write extra "state management" code. The docs say most apps skip libraries like Redux or TanStack Query.</div></div>
+
+          <h3 class="sub"><span>1.3</span> Three modes, like nesting dolls</h3>
+          <p>React Router comes in <b>three modes</b>. Each one adds to the one inside it. Framework is the biggest doll.</p>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 240" role="img" aria-label="Three nested boxes: Declarative inside Data inside Framework" xmlns="http://www.w3.org/2000/svg">
+                <g class="doll d3"><g class="bx a"><rect x="6" y="6" width="388" height="228" rx="24"/></g>
+                  <text x="200" y="30" class="b" text-anchor="middle" style="fill:var(--exam)">Framework</text>
+                  <text x="200" y="48" class="s" text-anchor="middle">+ Vite plugin · types · code splitting · SSR/SPA/static</text></g>
+                <g class="doll d2"><g class="bx inf"><rect x="30" y="62" width="340" height="160" rx="20"/></g>
+                  <text x="200" y="84" class="b" text-anchor="middle" style="fill:var(--info)">Data</text>
+                  <text x="200" y="102" class="m sm" text-anchor="middle">+ loader · action · useFetcher</text></g>
+                <g class="doll d1"><g class="bx warn"><rect x="56" y="116" width="288" height="92" rx="16"/></g>
+                  <text x="200" y="140" class="b" text-anchor="middle" style="fill:var(--key)">Declarative</text>
+                  <text x="200" y="162" class="m sm" text-anchor="middle">&lt;BrowserRouter&gt; · &lt;Link&gt;</text>
+                  <text x="200" y="184" class="s" text-anchor="middle">matches an address to a screen</text></g>
+              </svg>
+            </div>
+            <figcaption>Animated: the dolls appear from the inside out. Declarative only matches addresses to screens. Data adds loading and saving. Framework wraps Data in a Vite plugin and adds type safety, code splitting and a choice of rendering.</figcaption>
+          </figure>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🥕</span> Declarative</h3><p>Buying the ingredients. You do the rest.</p></div>
+            <div class="card"><h3><span class="ico">📦</span> Data</h3><p>A meal kit: data loading, saving and loading states.</p></div>
+            <div class="card accent"><h3><span class="ico">🍽️</span> Framework</h3><p>The full restaurant: kitchen, waiters and front door included.</p></div>
+          </div>
+          <div class="callout tip"><div><strong class="label">Which one?</strong>The docs frame it as "how much you want to do yourself". They recommend Framework mode if you are new or "just want to build something with React".</div></div>
+          <p>Framework-only parts are all about owning the <b>whole HTML page</b>:</p>
+          <div class="chips"><span class="chip hot">&lt;Links&gt;</span><span class="chip hot">&lt;Meta&gt;</span><span class="chip hot">&lt;Scripts&gt;</span><span class="chip hot">ServerRouter</span><span class="chip hot">link prefetching</span></div>
+
+          <h3 class="sub"><span>1.4</span> v7 or v8?</h3>
+          <div class="grid">
+            <div class="card"><span class="tile-n">8.5.3</span><span class="tile-l">current version, released 24 Nov 2026</span></div>
+            <div class="card"><span class="tile-n">8.0.0</span><span class="tile-l">shipped 17 June 2026</span></div>
+            <div class="card"><span class="tile-n">Same model</span><span class="tile-l">upgrading from v7 "is generally non-breaking" once future flags are on</span></div>
+          </div>
+
+          <h3 class="sub"><span>1.5</span> A good learning order</h3>
+          <div class="flow">
+            <div class="step"><b>Routes and nesting</b><span>Sections 3 and 4</span></div>
+            <div class="step"><b>Loaders and actions</b><span>Sections 6 and 7</span></div>
+            <div class="step"><b>Form vs fetcher</b><span>Section 7</span></div>
+            <div class="step"><b>Rendering choices</b><span>Section 9</span></div>
+            <div class="step"><b>Experiments last</b><span>API-only mode, Server Components</span></div>
+          </div>
+          <h3 class="sub"><span>Q</span> Flashcards</h3>
+          <div class="flashcards">
+            <details class="qa"><summary>What is Framework Mode, in one line?</summary><div class="a"><p>Data Mode "wrapped with a Vite plugin" that adds type safety, automatic code splitting and a choice of SSR, SPA or static pre-rendering.</p></div></details>
+            <details class="qa"><summary>Server and browser: which holds the truth?</summary><div class="a"><p>The server. The browser is a cache, and React Router refreshes it after saves.</p></div></details>
+          </div>
+        </section>
+
+        <!-- ================================================================ 2 -->
+        <section class="domain" id="rr2-setup" data-mod="2" data-short="Set up in 4 steps">
+          <div class="domain-head"><span class="domain-num">2</span><h2>Set up in 4 steps</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Four typed commands build a working starter website on your own computer. Then you open it in the browser at a local address.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Terminal</dt><dd>The text window where you type commands.</dd>
+              <dt>Template</dt><dd>A ready-made starter project with the main files in place.</dd>
+              <dt>Dev server</dt><dd>A small server on your computer that shows the site while you build it.</dd>
+              <dt>Vite</dt><dd>The fast build and dev tool that Framework mode plugs into.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>2.1</span> Type, install, run</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 272" role="img" aria-label="A terminal types four commands, files appear in a file tree, then the app opens at localhost:5173" xmlns="http://www.w3.org/2000/svg">
+                  <rect class="rr-term" x="6" y="6" width="388" height="106" rx="8"/>
+                  <circle class="rr-tdot" cx="20" cy="18" r="4"/><circle class="rr-tdot" cx="32" cy="18" r="4"/><circle class="rr-tdot" cx="44" cy="18" r="4"/>
+                  <text x="14" y="42" class="m sm" data-from="1">$ npx create-react-router@latest my-react-router-app</text>
+                  <text x="14" y="64" class="m sm" data-from="2">$ cd my-react-router-app</text>
+                  <text x="14" y="86" class="m sm" data-from="3">$ npm i</text>
+                  <text x="14" y="104" class="m sm" data-from="4">$ npm run dev  →  http://localhost:5173</text>
+                  <rect class="hlr" data-on="1" x="9" y="29" width="382" height="19" rx="4"/>
+                  <rect class="hlr" data-on="2" x="9" y="51" width="382" height="19" rx="4"/>
+                  <rect class="hlr" data-on="3" x="9" y="73" width="382" height="19" rx="4"/>
+                  <rect class="hlr" data-on="4" x="9" y="91" width="382" height="19" rx="4"/>
+                  <g class="bx"><rect x="6" y="120" width="222" height="146" rx="8"/></g>
+                  <g data-from="1" style="--d:0"><text x="14" y="138" class="m sm">my-react-router-app/</text></g>
+                  <g data-from="1" style="--d:1"><text x="14" y="153" class="m sm">├ vite.config.ts</text><rect class="sw-config" x="212" y="145" width="8" height="8" rx="2"/></g>
+                  <g data-from="1" style="--d:2"><text x="14" y="168" class="m sm">├ react-router.config.ts</text><rect class="sw-config" x="212" y="160" width="8" height="8" rx="2"/></g>
+                  <g data-from="1" style="--d:3"><text x="14" y="183" class="m sm">└ app/</text></g>
+                  <g data-from="1" style="--d:4"><text x="14" y="198" class="m sm">   ├ root.tsx</text><rect class="sw-doc" x="212" y="190" width="8" height="8" rx="2"/></g>
+                  <g data-from="1" style="--d:5"><text x="14" y="213" class="m sm">   ├ routes.ts</text><rect class="sw-routing" x="212" y="205" width="8" height="8" rx="2"/></g>
+                  <g data-from="1" style="--d:6"><text x="14" y="228" class="m sm">   ├ routes/home.tsx</text><rect class="sw-page" x="212" y="220" width="8" height="8" rx="2"/></g>
+                  <g data-from="1" style="--d:7"><text x="14" y="243" class="m sm dim">   ├ entry.server.tsx (hidden)</text><rect class="sw-hidden" x="212" y="235" width="8" height="8" rx="2"/></g>
+                  <g data-from="1" style="--d:8"><text x="14" y="258" class="m sm dim">   └ entry.client.tsx (hidden)</text><rect class="sw-hidden" x="212" y="250" width="8" height="8" rx="2"/></g>
+                  <g data-from="4">
+                    <g class="bx a"><rect x="236" y="120" width="158" height="146" rx="8"/></g>
+                    <rect class="rr-addrbar" x="244" y="128" width="142" height="20" rx="10"/>
+                    <text x="315" y="142" class="m sm" text-anchor="middle">localhost:5173</text>
+                    <text x="315" y="184" class="b" text-anchor="middle">Your app is live</text>
+                    <path class="rr-line" d="M262,206 H368 M262,222 H340 M262,238 H352"/>
+                  </g>
+                  <rect class="hlr" data-on="4" x="233" y="117" width="164" height="152" rx="10"/>
+                  <rect class="hlr" data-on="1" x="3" y="117" width="228" height="152" rx="10"/>
+                </svg>
+              </div>
+              <figcaption>Colours in the file tree: <b style="color:var(--key)">config</b>, <b style="color:var(--exam)">routing</b>, <b style="color:var(--info)">the HTML page</b>, <b style="color:var(--tip)">a page</b>, <span class="muted">hidden entry files</span>.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span><b>Create the project.</b> A ready-made template is copied into a new folder. <code>npx create-react-router@latest my-react-router-app</code></li>
+                <li><span class="n">2</span><b>Go into the folder.</b> <code>cd my-react-router-app</code></li>
+                <li><span class="n">3</span><b>Install the parts.</b> <code>npm i</code></li>
+                <li><span class="n">4</span><b>Start it.</b> <code>npm run dev</code>, then open <code>http://localhost:5173</code>.</li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>2.2</span> The file map</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">⚙️</span> <code class="k">vite.config.ts</code></h3><p>Loads the <code>reactRouter()</code> plugin.</p></div>
+            <div class="card"><h3><span class="ico">🎛️</span> <code class="k">react-router.config.ts</code></h3><p>App settings. Server rendering is on by default (<code>ssr: true</code>).</p></div>
+            <div class="card"><h3><span class="ico">🖼️</span> <code class="k">app/root.tsx</code></h3><p>The outer HTML page every other page sits inside.</p></div>
+            <div class="card"><h3><span class="ico">🗺️</span> <code class="k">app/routes.ts</code></h3><p>The address list: the floor plan of the restaurant.</p></div>
+            <div class="card"><h3><span class="ico">📄</span> <code class="k">app/routes/home.tsx</code></h3><p>The first page.</p></div>
+            <div class="card"><h3><span class="ico">🙈</span> Hidden entry files</h3><p><code>entry.server.tsx</code> and <code>entry.client.tsx</code> appear only after <code>npx react-router reveal</code>. Needed for custom servers or platforms like Cloudflare.</p></div>
+          </div>
+          <p>The main switches in the config file:</p>
+          <div class="chips"><span class="chip hot">ssr</span><span class="chip hot">prerender</span><span class="chip">appDirectory: "app"</span><span class="chip">buildDirectory: "build"</span><span class="chip">basename</span><span class="chip">routeDiscovery: lazy (default)</span></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>npx create-react-router@latest my-react-router-app
+cd my-react-router-app
+npm i
+npm run dev        # http://localhost:5173
+
+npx react-router reveal   # shows entry.server.tsx and entry.client.tsx</code></pre>
+          </div></details>
+        </section>
+
+        <!-- ================================================================ 3 -->
+        <section class="domain" id="rr3-recipe-card" data-mod="3" data-short="The recipe card">
+          <div class="domain-head"><span class="domain-num">3</span><h2>The recipe card (route module)</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Each table has <b>one recipe card</b>. It says what the plate looks like, how to cook it, how to take orders and what to do if something goes wrong. In React Router that card is one file, the <b>route module</b>.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Export</dt><dd>A named part a file offers to the outside, like one slot on the card.</dd>
+              <dt>Component</dt><dd>The screen itself: what the visitor sees.</dd>
+              <dt>Bundle</dt><dd>The code package sent to the browser.</dd>
+              <dt>Typegen</dt><dd>Auto-made type files so the editor catches wrong data shapes.</dd>
+            </dl>
+          </div>
+          <p>Every route has two required parts: <b>a URL pattern</b> and <b>a file path</b> to the route module. The file can have up to fifteen slots in three groups.</p>
+
+          <h3 class="sub"><span>3.1</span> Three groups of slots</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 258" role="img" aria-label="Route module slots in three columns: server, browser, page. Server parts stay out of the browser bundle." xmlns="http://www.w3.org/2000/svg">
+                <g class="bx a"><rect x="6" y="6" width="388" height="30" rx="8"/><text x="200" y="26" class="b" text-anchor="middle">export default → the screen (component)</text></g>
+                <rect class="rr-bundle" x="140" y="42" width="256" height="210" rx="10"/>
+                <text x="388" y="56" class="s" text-anchor="end" style="fill:var(--info)">browser bundle</text>
+                <g class="rc-srv">
+                  <text x="66" y="74" class="b" text-anchor="middle">Server</text>
+                  <g class="bx warn"><rect x="12" y="84" width="108" height="24" rx="5"/><text x="66" y="100" class="m sm" text-anchor="middle">loader</text></g>
+                  <g class="bx warn"><rect x="12" y="114" width="108" height="24" rx="5"/><text x="66" y="130" class="m sm" text-anchor="middle">action</text></g>
+                  <g class="bx warn"><rect x="12" y="144" width="108" height="24" rx="5"/><text x="66" y="160" class="m sm" text-anchor="middle">middleware</text></g>
+                  <g class="bx warn"><rect x="12" y="174" width="108" height="24" rx="5"/><text x="66" y="190" class="m sm" text-anchor="middle">headers</text></g>
+                </g>
+                <g class="rc-note"><text x="66" y="226" class="s" text-anchor="middle">never sent to</text><text x="66" y="240" class="s" text-anchor="middle">the browser</text></g>
+                <text x="134" y="101" class="b" text-anchor="middle" style="fill:var(--exam)">⇄</text>
+                <text x="134" y="131" class="b" text-anchor="middle" style="fill:var(--exam)">⇄</text>
+                <text x="134" y="161" class="b" text-anchor="middle" style="fill:var(--exam)">⇄</text>
+                <text x="204" y="74" class="b" text-anchor="middle">Browser</text>
+                <g class="bx inf"><rect x="150" y="84" width="108" height="24" rx="5"/><text x="204" y="100" class="m sm" text-anchor="middle">clientLoader</text></g>
+                <g class="bx inf"><rect x="150" y="114" width="108" height="24" rx="5"/><text x="204" y="130" class="m sm" text-anchor="middle">clientAction</text></g>
+                <g class="bx inf"><rect x="150" y="144" width="108" height="24" rx="5"/><text x="204" y="160" class="m sm" text-anchor="middle">clientMiddleware</text></g>
+                <g class="bx inf"><rect x="150" y="174" width="108" height="24" rx="5"/><text x="204" y="190" class="m sm" text-anchor="middle">HydrateFallback</text></g>
+                <text x="334" y="74" class="b" text-anchor="middle">Page</text>
+                <g class="bx"><rect x="280" y="84" width="108" height="24" rx="5"/><text x="334" y="100" class="m sm" text-anchor="middle">ErrorBoundary</text></g>
+                <g class="bx"><rect x="280" y="114" width="108" height="24" rx="5"/><text x="334" y="130" class="m sm" text-anchor="middle">meta</text></g>
+                <g class="bx"><rect x="280" y="144" width="108" height="24" rx="5"/><text x="334" y="160" class="m sm" text-anchor="middle">links</text></g>
+                <g class="bx"><rect x="280" y="174" width="108" height="24" rx="5"/><text x="334" y="190" class="m sm" text-anchor="middle">handle</text></g>
+                <g class="bx"><rect x="280" y="204" width="108" height="24" rx="5"/><text x="334" y="220" class="m sm" text-anchor="middle">shouldRevalidate</text></g>
+              </svg>
+            </div>
+            <figcaption>Animated: the server parts fade out of reach of the browser bundle. React Router strips them out, so they can safely hold database passwords and secret API calls. The ⇄ arrows show the mirror pairs.</figcaption>
+          </figure>
+          <div class="grid">
+            <div class="card"><h4>🔒 Server parts</h4><p><code class="k">loader</code> fetches data · <code class="k">action</code> saves forms · <code class="k">middleware</code> wraps requests (for example a login check) · <code class="k">headers</code> sets HTTP headers such as caching.</p></div>
+            <div class="card"><h4>🌐 Browser mirrors</h4><p><code class="k">clientLoader</code>, <code class="k">clientAction</code>, <code class="k">clientMiddleware</code> do the same jobs in the browser. <code class="k">HydrateFallback</code> is a placeholder while browser data loads on the first visit.</p></div>
+            <div class="card"><h4>📄 Page parts</h4><p><code class="k">ErrorBoundary</code> is the safety net. <code class="k">meta</code>, <code class="k">links</code>, <code class="k">handle</code>. <code class="k">shouldRevalidate</code> lets the route skip automatic refreshes.</p></div>
+          </div>
+          <h3 class="sub"><span>3.2</span> What the screen receives</h3>
+          <div class="chips"><span class="chip hot">loaderData</span><span class="chip hot">actionData</span><span class="chip hot">params</span><span class="chip hot">matches</span></div>
+          <div class="callout tip"><div><strong class="label">Typegen: free type checks</strong>React Router reads <code>routes.ts</code> and writes a <code>+types/&lt;route&gt;.d.ts</code> file for every route. <code>react-router dev</code> keeps them up to date, so your editor knows the shape of the page's data and URL parameters.</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>import type { Route } from "./+types/product";
+// Route gives checked types for this page's
+// loaderData, actionData and params</code></pre>
+          </div></details>
+        </section>
+
+        <!-- ================================================================ 4 -->
+        <section class="domain" id="rr4-routes" data-mod="4" data-short="Routes and the picture frame">
+          <div class="domain-head"><span class="domain-num">4</span><h2>Routes and the picture frame</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Pages sit inside pages, like <b>picture frames inside picture frames</b>. The outer page leaves an empty frame, and the inner page fills it. When you move, only the frame that changed is redrawn.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Nested route</dt><dd>A page inside a page.</dd>
+              <dt>&lt;Outlet/&gt;</dt><dd>The empty frame a parent leaves for its child.</dd>
+              <dt>Index route</dt><dd>The default child shown at the parent's own address.</dd>
+              <dt>Layout route</dt><dd>A shared frame (like a sidebar) that adds no words to the address.</dd>
+              <dt>Params</dt><dd>The variable part of an address, like the <code>1</code> in <code>/products/1</code>.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>4.1</span> Frames inside frames</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 282" role="img" aria-label="The address /dashboard/settings fills nested frames: root, dashboard, settings. Changing to /dashboard swaps only the inner frame." xmlns="http://www.w3.org/2000/svg">
+                  <rect class="rr-addrbar" x="6" y="6" width="388" height="30" rx="15"/>
+                  <text x="22" y="26" class="m" data-until="4">/dashboard/settings</text>
+                  <text x="22" y="26" class="m" data-from="4" style="fill:var(--exam);font-weight:700">/dashboard</text>
+                  <rect class="hlr" data-on="4" x="3" y="3" width="394" height="36" rx="18"/>
+                  <g data-from="1">
+                    <g class="bx"><rect x="6" y="46" width="388" height="230" rx="10"/></g>
+                    <rect class="rr-soft" x="12" y="52" width="376" height="24" rx="5"/>
+                    <text x="22" y="69" class="b">root.tsx</text><text x="378" y="69" class="s" text-anchor="end">header · the HTML page</text>
+                  </g>
+                  <g data-from="1" data-until="2"><rect class="rr-outlet" x="16" y="84" width="368" height="184" rx="8"/><text x="200" y="180" class="s" text-anchor="middle">&lt;Outlet/&gt; · empty frame</text></g>
+                  <rect class="hlr" data-on="1" x="3" y="43" width="394" height="236" rx="12"/>
+                  <g data-from="2">
+                    <g class="bx a"><rect x="16" y="84" width="368" height="184" rx="8"/></g>
+                    <text x="26" y="102" class="b" style="fill:var(--exam)">dashboard.tsx</text>
+                    <rect class="rr-soft" x="26" y="112" width="80" height="146" rx="6"/>
+                    <text x="66" y="132" class="s" text-anchor="middle">Sidebar</text>
+                    <path class="rr-line" d="M38,150 H94 M38,166 H86 M38,182 H90"/>
+                    <rect class="rr-outlet" x="116" y="112" width="258" height="146" rx="6"/>
+                    <text x="245" y="190" class="s" text-anchor="middle">&lt;Outlet/&gt; · smaller frame</text>
+                  </g>
+                  <rect class="hlr" data-on="2" x="13" y="81" width="374" height="190" rx="10"/>
+                  <g data-from="3" data-until="4">
+                    <g class="bx ok"><rect x="122" y="118" width="246" height="134" rx="6"/></g>
+                    <text x="245" y="146" class="b" text-anchor="middle" style="fill:var(--tip)">settings.tsx</text>
+                    <text x="245" y="166" class="s" text-anchor="middle">settings form</text>
+                    <rect class="rr-field" x="160" y="180" width="170" height="16" rx="4"/>
+                    <rect class="rr-field" x="160" y="204" width="170" height="16" rx="4"/>
+                  </g>
+                  <g data-from="4">
+                    <g class="bx warn"><rect x="122" y="118" width="246" height="134" rx="6"/></g>
+                    <text x="245" y="160" class="b" text-anchor="middle" style="fill:var(--key)">index route</text>
+                    <text x="245" y="180" class="s" text-anchor="middle">the dashboard's default page</text>
+                  </g>
+                  <rect class="hlr" data-on="3 4" x="113" y="109" width="264" height="152" rx="8"/>
+                </svg>
+              </div>
+              <figcaption>Press Play. Root draws the shell, dashboard fills its frame, settings fills the smallest one. Then the address changes and only the inner frame swaps.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span><b>Root draws the page shell.</b> <code class="k">root.tsx</code> is the only required route. It renders the real HTML page and leaves an empty frame, <code class="k">&lt;Outlet/&gt;</code>.</li>
+                <li><span class="n">2</span><b>Dashboard fills that frame</b> with its sidebar, and leaves a smaller frame.</li>
+                <li><span class="n">3</span><b>Settings fills the smallest frame.</b> The address <code>/dashboard/settings</code> is now on screen.</li>
+                <li><span class="n">4</span><b>The address changes to <code>/dashboard</code>.</b> Only the inner frame changes, now showing the index page. The header and sidebar stay where they are.</li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>4.2</span> The address list: four helpers</h3>
+          <p>Addresses live in <code class="k">app/routes.ts</code>, the floor plan.</p>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">📍</span> <code class="k">route()</code></h3><p>Maps one address to one file.</p></div>
+            <div class="card"><h3><span class="ico">🏠</span> <code class="k">index()</code></h3><p>The default screen at the parent's address.</p></div>
+            <div class="card"><h3><span class="ico">🖼️</span> <code class="k">layout()</code></h3><p>Adds a shared <b>frame</b>, but <b>no</b> words to the address.</p></div>
+            <div class="card"><h3><span class="ico">🏷️</span> <code class="k">prefix()</code></h3><p>Adds a <b>word</b> to the address, but <b>no</b> frame.</p></div>
+          </div>
+          <h4 class="muted" style="font-size:13px;text-transform:uppercase;letter-spacing:.06em">Spot the difference</h4>
+          <div class="grid cols-2">
+            <figure class="dg" style="margin:0">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 220 120" role="img" aria-label="layout: a frame around the page, the address stays /login" xmlns="http://www.w3.org/2000/svg">
+                  <text x="110" y="16" class="b" text-anchor="middle">layout("./auth/layout.tsx")</text>
+                  <g class="bx a"><rect x="20" y="26" width="180" height="70" rx="8"/></g>
+                  <text x="30" y="42" class="s">frame ✓</text>
+                  <g class="bx"><rect x="60" y="48" width="100" height="38" rx="6"/><text x="110" y="72" class="s" text-anchor="middle">login page</text></g>
+                  <text x="110" y="114" class="m sm" text-anchor="middle">address: /login</text>
+                </svg>
+              </div>
+              <figcaption>Frame yes, address word no.</figcaption>
+            </figure>
+            <figure class="dg" style="margin:0">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 220 120" role="img" aria-label="prefix: no frame, the address gains the word concerts" xmlns="http://www.w3.org/2000/svg">
+                  <text x="110" y="16" class="b" text-anchor="middle">...prefix("concerts")</text>
+                  <rect class="rr-blank" x="20" y="26" width="180" height="70" rx="8"/>
+                  <text x="30" y="42" class="s">no frame</text>
+                  <g class="bx"><rect x="60" y="48" width="100" height="38" rx="6"/><text x="110" y="72" class="s" text-anchor="middle">city page</text></g>
+                  <text x="110" y="114" class="m sm" text-anchor="middle">address: /concerts/:city</text>
+                </svg>
+              </div>
+              <figcaption>Address word yes, frame no.</figcaption>
+            </figure>
+          </div>
+          <h3 class="sub"><span>4.3</span> Addresses with blanks</h3>
+          <div class="grid">
+            <div class="card"><h4>Variable</h4><p><code class="k">:teamId</code> becomes <code>params.teamId</code>.</p></div>
+            <div class="card"><h4>Optional</h4><p>A trailing <code class="k">?</code> makes a part optional.</p></div>
+            <div class="card"><h4>The rest</h4><p><code class="k">files/*</code> captures the rest of the address.</p></div>
+            <div class="card"><h4>Not found</h4><p><code class="k">route("*", ...)</code> catches every unknown address for a 404 page.</p></div>
+          </div>
+          <div class="callout info"><div><strong class="label">Prefer folders?</strong><code>@react-router/fs-routes</code> builds the same tree from file names such as <code>_index.tsx</code>, <code>concerts.$city.tsx</code> and <code>_auth.login.tsx</code>. Both styles can be mixed.</div></div>
+
+          <h3 class="sub"><span>4.4</span> When something breaks: the safety net</h3>
+          <p>Any route can export an <code class="k">ErrorBoundary</code>. An error shows the <b>nearest net at or above</b> that route. Everything outside stays on screen, like a circuit breaker for each room.</p>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 230" role="img" aria-label="An error in payments rises and is caught by the invoice-page safety net; the outer layouts stay" xmlns="http://www.w3.org/2000/svg">
+                <g class="bx"><rect x="6" y="6" width="388" height="218" rx="10"/></g>
+                <text x="18" y="26" class="b">app.tsx</text>
+                <path class="rr-shield" transform="translate(372,10)" d="M0,0 L10,3 V9 Q10,16 0,20 Q-10,16 -10,9 V3 Z"/>
+                <g class="bx"><rect x="20" y="36" width="360" height="180" rx="9"/></g>
+                <text x="32" y="56" class="b">invoices.tsx</text>
+                <g class="bx a"><rect x="34" y="68" width="332" height="140" rx="8"/></g>
+                <text x="46" y="88" class="b" style="fill:var(--exam)">invoice-page.tsx</text>
+                <path class="rr-shield" transform="translate(350,74)" d="M0,0 L10,3 V9 Q10,16 0,20 Q-10,16 -10,9 V3 Z"/>
+                <g class="bx"><rect x="48" y="100" width="304" height="96" rx="7"/></g>
+                <text x="60" y="120" class="b">payments.tsx</text>
+                <g class="eb-err"><g class="bx bad"><rect x="48" y="100" width="304" height="96" rx="7"/></g>
+                  <text x="200" y="142" class="b" text-anchor="middle" style="fill:var(--trap)">⚠ Error message shown here</text>
+                  <text x="200" y="164" class="s" text-anchor="middle">header, nav and outer layouts stay</text></g>
+                <circle class="rr-spark eb-spark" cx="200" cy="160" r="6"/>
+              </svg>
+            </div>
+            <figcaption>Animated: a red spark rises from <code>payments.tsx</code> and stops at the nearest shield, on <code>invoice-page.tsx</code>. An error in <code>invoices.tsx</code> would rise to <code>app.tsx</code> instead. Shields mark the routes that have a boundary.</figcaption>
+          </figure>
+          <div class="dodont">
+            <div class="do"><h4>Use error boundaries for</h4><ul><li>Unexpected failures (bugs)</li><li>Deliberate "not found" responses, like a 404</li></ul></div>
+            <div class="dont"><h4>Don't use them for</h4><ul><li>Form validation: return those messages from the action as normal data</li></ul></div>
+          </div>
+          <div class="callout key"><div><strong class="label">Safe by default</strong>In production, real bug details are hidden from the browser. Messages you throw on purpose with <code>data()</code> are shown.</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>// app/routes.ts helpers
+route("about", "./about.tsx")
+index("./home.tsx")
+layout("./auth/layout.tsx", [ /* children */ ])
+...prefix("concerts", [ /* children */ ])
+route("*", ...)            // every unknown address
+
+// a deliberate "not found"
+throw data("Record Not Found", { status: 404 });
+// in the root ErrorBoundary: isRouteErrorResponse(error)</code></pre>
+          </div></details>
+          <h3 class="sub"><span>Q</span> Flashcards</h3>
+          <div class="flashcards">
+            <details class="qa"><summary>layout() vs prefix()?</summary><div class="a"><p>layout adds a frame but no address word. prefix adds an address word but no frame.</p></div></details>
+            <details class="qa"><summary>An error in payments.tsx: which boundary shows?</summary><div class="a"><p>The nearest one at or above it: invoice-page.tsx in the docs' example. Outer layouts stay on screen.</p></div></details>
+          </div>
+        </section>
+
+        <!-- ================================================================ 5 -->
+        <section class="domain" id="rr5-navigation" data-mod="5" data-short="Moving between pages">
+          <div class="domain-head"><span class="domain-num">5</span><h2>Moving between pages</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>There are six ways to move to another page. To pick one, ask <b>who starts the move</b>: the visitor clicks, the visitor submits, the server decides, or a timer decides.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Navigation</dt><dd>Moving from one page to another.</dd>
+              <dt>Redirect</dt><dd>The server sends the visitor somewhere else.</dd>
+              <dt>Prefetch</dt><dd>Loading the next page's code and data before the click.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>5.1</span> Who starts the move?</h3>
+          <div class="grid cols-2 who">
+            <div class="card" style="--i:0"><h3><span class="ico">👆</span> The visitor clicks</h3>
+              <div class="apis"><code class="k">&lt;Link&gt;</code><code class="k">&lt;NavLink&gt;</code></div>
+              <p>Link for a plain link. NavLink for menu links that highlight when active or pending.</p></div>
+            <div class="card" style="--i:1"><h3><span class="ico">📝</span> The visitor submits</h3>
+              <div class="apis"><code class="k">&lt;Form&gt; (GET)</code><code class="k">&lt;Form method="post"&gt;</code><code class="k">useFetcher()</code></div>
+              <p>GET forms for search boxes that put the query in the address. Post forms or fetchers to send data.</p></div>
+            <div class="card" style="--i:2"><h3><span class="ico">🗄️</span> The server decides</h3>
+              <div class="apis"><code class="k">redirect()</code></div>
+              <p>After a loader or action, the server says where to go next.</p></div>
+            <div class="card" style="--i:3"><h3><span class="ico">⏱️</span> A timer decides</h3>
+              <div class="apis"><code class="k">useNavigate()</code></div>
+              <p>Only when code must move with no visitor action, like an inactivity logout or a quiz timer. The docs say "use sparingly".</p></div>
+          </div>
+
+          <h3 class="sub"><span>5.2</span> Prefetch: cook before the order</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 120" role="img" aria-label="The pointer moves onto a link; code and data arrive before the click" xmlns="http://www.w3.org/2000/svg">
+                <g class="bx a"><rect x="20" y="40" width="130" height="30" rx="15"/><text x="85" y="60" class="b" text-anchor="middle">Product 2 →</text></g>
+                <g class="bx warn"><rect x="300" y="35" width="90" height="40" rx="8"/><text x="345" y="60" class="b" text-anchor="middle">Server</text></g>
+                <path class="ln d" d="M150,55 H300"/>
+                <g class="pf-pk"><circle class="rv-dot" cx="300" cy="55" r="7"/></g>
+                <text x="225" y="44" class="s pf-ready" text-anchor="middle">code + data ready</text>
+                <circle class="rr-click pf-click" cx="112" cy="62" r="9"/>
+                <g class="pf-cur"><path transform="translate(108,58)" d="M0,0 L0,17 L4.5,13 L8,20 L11,18.5 L7.5,12 L13,12 Z" style="fill:var(--text);stroke:var(--surface);stroke-width:1.2"/></g>
+                <text x="200" y="106" class="s" text-anchor="middle">prefetch="intent": loads on hover or focus</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the pointer rests on a link, the next page's code and data load, then the click feels instant.</figcaption>
+          </figure>
+          <div class="chips"><span class="chip">"none" (default)</span><span class="chip hot">"intent": hover or focus</span><span class="chip">"render"</span><span class="chip">"viewport"</span></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>&lt;Link to="/products/2" prefetch="intent"&gt;Product 2&lt;/Link&gt;
+// prefetch: "none" (default) | "intent" | "render" | "viewport"</code></pre>
+          </div></details>
+        </section>
+
+        <!-- ================================================================ 6 -->
+        <section class="domain" id="rr6-loading" data-mod="6" data-short="Loading data">
+          <div class="domain-head"><span class="domain-num">6</span><h2>Loading data</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Before a plate is served, the kitchen prepares it. A <b>loader</b> fetches a page's data <b>before</b> the page shows. All the kitchen stations cook <b>at the same time</b>, not one after another.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Loader</dt><dd>Server code that fetches a page's data before it shows.</dd>
+              <dt>clientLoader</dt><dd>The same idea, run in the browser (for public APIs or browser storage).</dd>
+              <dt>Waterfall</dt><dd>A slow chain where each request waits for the one before.</dd>
+              <dt>Middleware</dt><dd>Code that wraps every request in layers, like a login check.</dd>
+              <dt>Streaming</dt><dd>Sending the page in parts, so slow data fills in later.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>6.1</span> Server loader or browser loader</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🍳</span> <code class="k">loader</code></h3><p>Runs on the server. Used for the first page load <b>and</b> for later clicks: React Router calls it from the browser with an automatic <code>fetch</code>.</p></div>
+            <div class="card"><h3><span class="ico">🌐</span> <code class="k">clientLoader</code></h3><p>Runs only in the browser. If a route has both, the server loader handles the first load and the client loader the later clicks. It can still call <code>serverLoader()</code>.</p></div>
+            <div class="card"><h3><span class="ico">📦</span> What it can return</h3><p>Plain objects, including promises, maps, sets and dates. Or <code>data(value, { status, headers })</code> to set an HTTP status.</p></div>
+          </div>
+
+          <h3 class="sub"><span>6.2</span> All loaders run at once</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 210" role="img" aria-label="Waterfall: three bars one after another finish late. Parallel: three bars together finish early." xmlns="http://www.w3.org/2000/svg">
+                <text x="8" y="20" class="b">One after another (a waterfall)</text>
+                <text x="72" y="45" class="s" text-anchor="end">root</text><text x="72" y="65" class="s" text-anchor="end">parent</text><text x="72" y="85" class="s" text-anchor="end">child</text>
+                <rect class="rr-bar wf wf1" x="80" y="34" width="90" height="14" rx="3"/>
+                <rect class="rr-bar wf wf2" x="170" y="54" width="90" height="14" rx="3"/>
+                <rect class="rr-bar wf wf3" x="260" y="74" width="90" height="14" rx="3"/>
+                <text x="356" y="85" class="s ready-wf">ready</text>
+                <path class="ln ax" d="M80,100 H392"/>
+                <text x="8" y="124" class="b">All at once (React Router)</text>
+                <text x="72" y="149" class="s" text-anchor="end">root</text><text x="72" y="169" class="s" text-anchor="end">parent</text><text x="72" y="189" class="s" text-anchor="end">child</text>
+                <rect class="rr-bar par" x="80" y="138" width="90" height="14" rx="3"/>
+                <rect class="rr-bar par" x="80" y="158" width="78" height="14" rx="3"/>
+                <rect class="rr-bar par" x="80" y="178" width="88" height="14" rx="3"/>
+                <text x="180" y="169" class="okm ready-par">✓ ready</text>
+                <path class="ln ax" d="M80,200 H392"/>
+                <text x="392" y="196" class="s" text-anchor="end">time →</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the race. In a waterfall each loader waits for the one before. React Router runs <b>all matched loaders in parallel</b>, so the page is ready much sooner.</figcaption>
+          </figure>
+          <div class="callout trap"><div><strong class="label">The catch</strong>Because loaders run in parallel, a parent loader <b>cannot protect</b> its children with a login check. Each loader must check the login itself, or <b>middleware</b> on a shared parent must do it.</div></div>
+
+          <h3 class="sub"><span>6.3</span> Middleware: layers of an onion</h3>
+          <p><span class="an">Analogy</span>Doormen at each nested door. The outer one checks the reservation once, and everyone inside trusts the note he passes along. That note is the <code class="k">context</code>.</p>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 270" role="img" aria-label="Middleware rings root, parent, child around the loaders. A request goes in through each ring, then the response comes out." xmlns="http://www.w3.org/2000/svg">
+                  <circle class="rr-ring" cx="200" cy="135" r="125"/>
+                  <circle class="rr-ring r2" cx="200" cy="135" r="92"/>
+                  <circle class="rr-ring r3" cx="200" cy="135" r="60"/>
+                  <circle class="rr-ring r4" cx="200" cy="135" r="30"/>
+                  <text x="200" y="28" class="b" text-anchor="middle">root</text>
+                  <text x="200" y="60" class="b" text-anchor="middle">parent</text>
+                  <text x="200" y="92" class="b" text-anchor="middle">child</text>
+                  <text x="200" y="139" class="b" text-anchor="middle" style="font-size:12px">loaders</text>
+                  <circle class="hlr" data-on="1 7" cx="200" cy="135" r="125"/>
+                  <circle class="hlr" data-on="2 6" cx="200" cy="135" r="92"/>
+                  <circle class="hlr" data-on="3 5" cx="200" cy="135" r="60"/>
+                  <circle class="hlr" data-on="4" cx="200" cy="135" r="30"/>
+                  <text x="38" y="128" class="s" text-anchor="middle">request</text><text x="38" y="146" class="b" text-anchor="middle" style="fill:var(--exam)">in →</text>
+                  <text x="362" y="128" class="s" text-anchor="middle">response</text><text x="362" y="146" class="b" text-anchor="middle" style="fill:var(--exam)">out →</text>
+                  <circle class="rv-dot hlr-dot" data-on="1" cx="92" cy="135" r="7"/>
+                  <circle class="rv-dot hlr-dot" data-on="2" cx="124" cy="135" r="7"/>
+                  <circle class="rv-dot hlr-dot" data-on="3" cx="155" cy="135" r="7"/>
+                  <circle class="rv-dot hlr-dot" data-on="4" cx="200" cy="160" r="7"/>
+                  <circle class="rv-dot hlr-dot" data-on="5" cx="245" cy="135" r="7"/>
+                  <circle class="rv-dot hlr-dot" data-on="6" cx="276" cy="135" r="7"/>
+                  <circle class="rv-dot hlr-dot" data-on="7" cx="308" cy="135" r="7"/>
+                </svg>
+              </div>
+              <figcaption>Press Play to follow one request in through the doors and back out again.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span><b>Root starts.</b> The outer doorman, for example checking the login.</li>
+                <li><span class="n">2</span><b>Parent starts.</b></li>
+                <li><span class="n">3</span><b>Child starts.</b> Each one calls <code class="k">next()</code> to pass the request inward.</li>
+                <li><span class="n">4</span><b>The loaders run</b> (all in parallel), reading the note from <code class="k">context</code>.</li>
+                <li><span class="n">5</span><b>Child ends.</b></li>
+                <li><span class="n">6</span><b>Parent ends.</b></li>
+                <li><span class="n">7</span><b>Root ends.</b> The response goes out.</li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>6.4</span> Streaming: main course now, dessert later</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 220" role="img" aria-label="A page shows the product at once while the reviews box shows a spinner, then the reviews fade in" xmlns="http://www.w3.org/2000/svg">
+                <g class="bx"><rect x="6" y="6" width="388" height="208" rx="10"/></g>
+                <rect class="rr-soft" x="16" y="16" width="368" height="24" rx="5"/><text x="28" y="33" class="s">header</text>
+                <g class="bx a"><rect x="16" y="50" width="180" height="154" rx="8"/></g>
+                <text x="106" y="72" class="b" text-anchor="middle" style="fill:var(--exam)">Product</text>
+                <rect class="rr-img" x="56" y="84" width="100" height="70" rx="6"/>
+                <text x="106" y="176" class="s" text-anchor="middle">awaited: critical</text>
+                <text x="106" y="192" class="s" text-anchor="middle">shown straight away</text>
+                <rect class="rr-blank" x="206" y="50" width="178" height="154" rx="8"/>
+                <text x="295" y="72" class="b" text-anchor="middle">Reviews</text>
+                <g class="st-wait"><path class="st-arc st-spin" d="M295,100 a16,16 0 1 1 -16,16"/><text x="295" y="150" class="s" text-anchor="middle">still cooking…</text></g>
+                <g class="st-rev"><path class="rr-line" d="M222,96 H366 M222,112 H340 M222,136 H366 M222,152 H330"/><text x="295" y="180" class="okm" text-anchor="middle">✓ filled in later</text></g>
+                <text x="295" y="196" class="s" text-anchor="middle">streamed: a slow extra</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the product shows at once; the reviews box waits behind a placeholder, then fills in.</figcaption>
+          </figure>
+          <div class="flow">
+            <div class="step"><b>Await the critical data</b><span>Anything above the fold or needed for search engines.</span></div>
+            <div class="step"><b>Return slow data unawaited</b><span>Its promise goes back inside an object.</span></div>
+            <div class="step"><b>Show a placeholder</b><span><code>&lt;React.Suspense fallback&gt;</code> with <code>&lt;Await&gt;</code>.</span></div>
+          </div>
+          <div class="callout info"><div><strong class="label">Time limit</strong>Promises still waiting are rejected after <b>4950 ms</b> by default. Change it with <code>export const streamTimeout</code> in <code>entry.server.tsx</code>. The old <code>defer()</code> helper is gone.</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>// loader: set a status without building a full response
+return data(value, { status, headers });
+
+// middleware: call next(), share a typed note
+createContext()   context.set(...)   context.get(...)
+
+// streaming in the component
+&lt;React.Suspense fallback={...}&gt;
+  &lt;Await resolve={promise}&gt;...&lt;/Await&gt;
+&lt;/React.Suspense&gt;</code></pre>
+          </div></details>
+          <h3 class="sub"><span>Q</span> Flashcards</h3>
+          <div class="flashcards">
+            <details class="qa"><summary>Why can't a parent loader guard its children?</summary><div class="a"><p>All matched loaders run in parallel, so the child does not wait for the parent. Use middleware, or check in each loader.</p></div></details>
+            <details class="qa"><summary>What should be streamed?</summary><div class="a"><p>Slow, non-essential extras like reviews or recommendations. Await what is above the fold or needed for search engines.</p></div></details>
+          </div>
+        </section>
+
+        <!-- ================================================================ 7 -->
+        <section class="domain" id="rr7-saving" data-mod="7" data-short="Saving data">
+          <div class="domain-head"><span class="domain-num">7</span><h2>Saving data</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>The diner hands over an <b>order slip</b>. The kitchen cooks it. Then <b>every dish on the table is refreshed</b>, so nothing is stale. You don't write the refresh code.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Action</dt><dd>Server code that handles a form submission (saving, deleting).</dd>
+              <dt>Revalidation</dt><dd>Re-running loaders after a save so the screen shows fresh data.</dd>
+              <dt>Fetcher</dt><dd>A way to load or save without changing the address.</dd>
+              <dt>Pending UI</dt><dd>Spinners or dimming while something loads or saves.</dd>
+              <dt>Optimistic UI</dt><dd>Showing the expected result before the server confirms.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>7.1</span> Submit, save, refresh</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 280" role="img" aria-label="A cycle: you submit, the action saves on the server, every loader re-runs, the page shows fresh data" xmlns="http://www.w3.org/2000/svg">
+                <circle class="ln a d" cx="200" cy="140" r="95"/>
+                <g class="bx a"><rect x="140" y="25" width="120" height="40" rx="8"/><text x="200" y="43" class="b" text-anchor="middle">You submit</text><text x="200" y="58" class="s" text-anchor="middle">Form or fetcher</text></g>
+                <g class="bx warn"><rect x="237" y="120" width="116" height="40" rx="8"/><text x="295" y="138" class="b" text-anchor="middle">action saves</text><text x="295" y="153" class="s" text-anchor="middle">on the server</text></g>
+                <g class="bx ok"><rect x="142" y="215" width="116" height="40" rx="8"/><text x="200" y="233" class="b" text-anchor="middle">loaders re-run</text><text x="200" y="248" class="s" text-anchor="middle">every one on the page</text></g>
+                <g class="bx inf"><rect x="47" y="120" width="116" height="40" rx="8"/><text x="105" y="138" class="b" text-anchor="middle">fresh page</text><text x="105" y="153" class="s" text-anchor="middle">no extra code</text></g>
+                <rect class="hlr rv-g0" x="137" y="22" width="126" height="46" rx="10"/>
+                <rect class="hlr rv-g1" x="234" y="117" width="122" height="46" rx="10"/>
+                <rect class="hlr rv-g2" x="139" y="212" width="122" height="46" rx="10"/>
+                <rect class="hlr rv-g3" x="44" y="117" width="122" height="46" rx="10"/>
+                <g class="rv-flash"><rect class="rr-dcard" x="172" y="104" width="56" height="16" rx="4"/><rect class="rr-dcard" x="172" y="126" width="56" height="16" rx="4"/><rect class="rr-dcard" x="172" y="148" width="56" height="16" rx="4"/></g>
+                <text x="200" y="182" class="s" text-anchor="middle">page data</text>
+                <g class="rv-spin"><circle class="rv-dot" cx="200" cy="45" r="7"/></g>
+              </svg>
+            </div>
+            <figcaption>Animated: one trip around the cycle. When the action finishes, <b>all loader data on the page is refreshed</b> (the three cards flash). This is automatic revalidation.</figcaption>
+          </figure>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">✅</span> Success (2xx)</h3><p>Every active loader re-runs.</p></div>
+            <div class="card"><h3><span class="ico">⛔</span> Failure (4xx or 5xx)</h3><p>Refresh is skipped by default.</p></div>
+            <div class="card"><h3><span class="ico">🎚️</span> Opt out</h3><p><code class="k">shouldRevalidate</code> skips one route, but "can leave the UI out of sync with the server".</p></div>
+          </div>
+          <div class="dodont">
+            <div class="do"><h4>Do</h4><ul><li>Save through <code>&lt;Form&gt;</code> or a fetcher, so the page refreshes itself</li><li>Return validation errors from the action as data</li><li>Keep <code>useRevalidator()</code> for refresh on window focus or polling</li></ul></div>
+            <div class="dont"><h4>Don't</h4><ul><li>Call an API with a plain <code>fetch()</code>: it skips the router, so nothing refreshes</li><li>Use an error boundary for form validation</li></ul></div>
+          </div>
+
+          <h3 class="sub"><span>7.2</span> Form goes somewhere, fetcher does something here</h3>
+          <p>One test: <b>should the address change?</b></p>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 250" role="img" aria-label="Form lane: the address changes and history grows. Fetcher lane: the address stays and a message is marked read." xmlns="http://www.w3.org/2000/svg">
+                <text x="12" y="22" class="b" style="fill:var(--exam)">&lt;Form&gt;: moves to a new table</text>
+                <rect class="rr-addrbar" x="12" y="34" width="230" height="26" rx="13"/>
+                <text x="26" y="52" class="m ff-old">/projects/new</text>
+                <text x="26" y="52" class="m ff-new" style="fill:var(--exam);font-weight:700">/projects/9</text>
+                <text x="325" y="28" class="s" text-anchor="middle">history</text>
+                <g class="bx"><rect x="262" y="36" width="126" height="18" rx="4"/><text x="325" y="49" class="s" text-anchor="middle">/projects</text></g>
+                <g class="bx"><rect x="262" y="58" width="126" height="18" rx="4"/><text x="325" y="71" class="s" text-anchor="middle">/projects/new</text></g>
+                <g class="bx a ff-new"><rect x="262" y="80" width="126" height="18" rx="4"/><text x="325" y="93" class="s" text-anchor="middle">/projects/9 (new)</text></g>
+                <text x="12" y="88" class="s">address changes, history grows</text>
+                <path class="ln ax" d="M6,118 H394"/>
+                <text x="12" y="144" class="b" style="fill:var(--info)">fetcher: a word with a passing waiter</text>
+                <rect class="rr-addrbar" x="12" y="156" width="230" height="26" rx="13"/>
+                <text x="26" y="174" class="m">/inbox</text>
+                <text x="325" y="152" class="s" text-anchor="middle">history</text>
+                <g class="bx"><rect x="262" y="160" width="126" height="18" rx="4"/><text x="325" y="173" class="s" text-anchor="middle">/inbox</text></g>
+                <g class="bx"><rect x="12" y="192" width="230" height="40" rx="7"/></g>
+                <text x="26" y="216" class="s">Message 1</text>
+                <text x="228" y="216" class="b ff-unread" text-anchor="end" style="fill:var(--key)">● unread</text>
+                <text x="228" y="216" class="okm ff-read" text-anchor="end">✓ read</text>
+                <g class="bx warn"><rect x="300" y="196" width="88" height="32" rx="7"/><text x="344" y="217" class="b" text-anchor="middle">server</text></g>
+                <g class="ff-pk"><circle class="rv-dot" cx="248" cy="212" r="6"/></g>
+                <text x="12" y="246" class="s">address stays, no new history</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the Form lane gets a new address and a new history entry. The fetcher lane sends a quick message to the server and back; the address stays.</figcaption>
+          </figure>
+          <div class="grid cols-2">
+            <div class="card accent"><h3><span class="ico">🚪</span> Use <code class="k">&lt;Form&gt;</code></h3><p>When the address should change, like creating a project and then going to its page. It adds a history entry and drives the global loading state.</p></div>
+            <div class="card accent"><h3><span class="ico">💬</span> Use <code class="k">useFetcher</code></h3><p>When it should not: marking a message read, deleting one row, loading a pop-up's data. Each fetcher has its own state, and many can run at once.</p></div>
+          </div>
+
+          <h3 class="sub"><span>7.3</span> While you wait</h3>
+          <div class="grid">
+            <div class="card"><h4>Pending state</h4><p><code class="k">useNavigation</code>, NavLink's <code class="k">isPending</code>, and <code class="k">fetcher.state</code>: idle, loading or submitting.</p></div>
+            <div class="card"><h4>Optimistic UI</h4><p>Read <code class="k">fetcher.formData</code> to show the result straight away (tick the task), then let the server's fresh data take over.</p></div>
+            <div class="card"><h4>Races handled</h4><p>An interrupted move cancels data requests in flight, and an old answer never overwrites a newer one.</p></div>
+          </div>
+          <div class="callout trap"><div><strong class="label">Your job</strong>The framework gives you the pending state, but "apps must implement pending and optimistic UI themselves".</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>&lt;Form method="post"&gt;...&lt;/Form&gt;     // address changes
+const fetcher = useFetcher();     // address stays
+&lt;fetcher.Form method="post"&gt;...&lt;/fetcher.Form&gt;
+fetcher.state      // "idle" | "loading" | "submitting"
+fetcher.formData   // for optimistic UI
+fetcher.data       // what the action returned
+// also: useSubmit, fetcher.submit, useRevalidator()</code></pre>
+          </div></details>
+          <h3 class="sub"><span>Q</span> Flashcards</h3>
+          <div class="flashcards">
+            <details class="qa"><summary>What happens after a successful action?</summary><div class="a"><p>All loader data on the page is revalidated automatically, so the screen matches the server.</p></div></details>
+            <details class="qa"><summary>Form or fetcher: delete one row from a list?</summary><div class="a"><p>A fetcher. The address should not change.</p></div></details>
+          </div>
+        </section>
+
+        <!-- ================================================================ 8 -->
+        <section class="domain" id="rr8-journeys" data-mod="8" data-short="Three journeys">
+          <div class="domain-head"><span class="domain-num">8</span><h2>Three journeys</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Three trips show the whole machine at work: the <b>first visit</b>, a <b>click</b> to another page, and a <b>form submit</b>. Press Play, or tap a step card.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Document request</dt><dd>The browser asking the server for a whole page.</dd>
+              <dt>Hydration</dt><dd>The browser "waking up" ready-made HTML by attaching JavaScript to it.</dd>
+              <dt>Progressive enhancement</dt><dd>Pages and forms work as plain HTML first, then get better with JavaScript.</dd>
+            </dl>
+          </div>
+          <div class="callout info"><div><strong class="label">Note</strong>The docs give no single official lifecycle diagram. This order is put together from the Data Loading, Middleware, Progressive Enhancement, Lazy Route Discovery and Actions pages.</div></div>
+
+          <h3 class="sub"><span>8.1</span> Journey one: the first visit</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 260" role="img" aria-label="First page load between the browser and the server, in 8 steps" xmlns="http://www.w3.org/2000/svg">
+                  <text x="80" y="18" class="b" text-anchor="middle">🧑 Browser</text>
+                  <text x="320" y="18" class="b" text-anchor="middle">🍳 Server</text>
+                  <g class="bx"><rect x="6" y="26" width="148" height="228" rx="10"/></g>
+                  <g class="bx"><rect x="246" y="26" width="148" height="228" rx="10"/></g>
+                  <rect class="rr-addrbar" x="14" y="34" width="132" height="22" rx="11"/>
+                  <text x="80" y="49" class="m sm" text-anchor="middle">/products/1</text>
+                  <rect class="hlr" data-on="1" x="11" y="31" width="138" height="28" rx="13"/>
+                  <rect class="rr-blank" x="14" y="64" width="132" height="118" rx="6"/>
+                  <text x="80" y="126" class="s" text-anchor="middle" data-until="5">blank screen</text>
+                  <g data-from="5">
+                    <rect class="rr-soft" x="20" y="70" width="120" height="14" rx="3"/>
+                    <rect class="rr-img" x="20" y="90" width="50" height="50" rx="4"/>
+                    <path class="rr-line" d="M80,98 H134 M80,112 H124"/>
+                    <rect class="rr-btn" x="80" y="124" width="54" height="16" rx="4"/><text x="107" y="136" class="on-btn" text-anchor="middle">Buy</text>
+                  </g>
+                  <text x="80" y="170" class="okm" text-anchor="middle" data-from="7" style="font-size:12px">⚡ switched on</text>
+                  <rect class="hlr" data-on="5 7" x="11" y="61" width="138" height="124" rx="8"/>
+                  <g data-from="6"><g class="bx ok"><rect x="14" y="190" width="132" height="24" rx="6"/><text x="80" y="206" class="m sm" text-anchor="middle">this page's code</text></g></g>
+                  <rect class="hlr" data-on="6" x="11" y="187" width="138" height="30" rx="8"/>
+                  <g data-from="8"><g class="bx inf"><rect x="14" y="222" width="132" height="24" rx="6"/><text x="80" y="238" class="m sm" text-anchor="middle">/__manifest</text></g></g>
+                  <rect class="hlr" data-on="8" x="11" y="219" width="138" height="30" rx="8"/>
+                  <rect class="rr-ring" x="256" y="36" width="128" height="62" rx="10"/>
+                  <rect class="rr-ring r2" x="266" y="44" width="108" height="46" rx="8"/>
+                  <rect class="rr-ring r3" x="276" y="53" width="88" height="28" rx="6"/>
+                  <text x="320" y="71" class="s" text-anchor="middle" style="fill:var(--text)">middleware</text>
+                  <rect class="hlr" data-on="2" x="253" y="33" width="134" height="68" rx="12"/>
+                  <text x="320" y="116" class="s" text-anchor="middle">loaders, all at once</text>
+                  <g class="rr-lbars" data-on="3"><rect x="262" y="122" width="86" height="9" rx="3"/><rect x="262" y="135" width="70" height="9" rx="3"/><rect x="262" y="148" width="104" height="9" rx="3"/></g>
+                  <rect class="hlr" data-on="3" x="253" y="104" width="134" height="58" rx="8"/>
+                  <g class="bx a"><rect x="256" y="172" width="128" height="30" rx="7"/><text x="320" y="191" class="m sm" text-anchor="middle">HTML + data</text></g>
+                  <rect class="hlr" data-on="4" x="253" y="169" width="134" height="36" rx="9"/>
+                  <g class="bx"><rect x="256" y="212" width="128" height="30" rx="7"/><text x="320" y="231" class="m sm" text-anchor="middle">route code chunks</text></g>
+                  <rect class="hlr" data-on="6 8" x="253" y="209" width="134" height="36" rx="9"/>
+                  <path class="ln d" d="M154,45 H246 M246,187 L154,140 M246,227 L154,202 M154,234 L246,227"/>
+                  <g class="pkt" data-at="1" style="--dx:92px;--dy:0px"><circle cx="154" cy="45" r="6"/></g>
+                  <g class="pkt" data-at="2" style="--dx:64px;--dy:0px"><circle cx="256" cy="67" r="6"/></g>
+                  <g class="pkt" data-at="4" style="--dx:-92px;--dy:-47px"><circle cx="246" cy="187" r="6"/></g>
+                  <g class="pkt" data-at="6" style="--dx:-92px;--dy:-25px"><circle cx="246" cy="227" r="6"/></g>
+                  <g class="pkt" data-at="8" style="--dx:92px;--dy:-7px"><circle cx="154" cy="234" r="6"/></g>
+                </svg>
+              </div>
+              <figcaption>Press Play: the request goes in, the plated HTML comes out, then the page "switches on".</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The browser asks the server for <code>/products/1</code> (a document request).<span class="an-line">A diner walks in and gives a table number.</span></li>
+                <li><span class="n">2</span>Server <b>middleware</b> runs root to leaf, like an onion, for example checking the login.<span class="an-line">Doormen check the reservation at each door.</span></li>
+                <li><span class="n">3</span>React Router matches root → products → product and runs all matched <b>loaders in parallel</b>.<span class="an-line">Every kitchen station cooks at once.</span></li>
+                <li><span class="n">4</span><code>entry.server.tsx</code> renders the pages into <b>HTML</b> with the data baked in, and starts <b>streaming</b> it.<span class="an-line">The meal goes out course by course.</span></li>
+                <li><span class="n">5</span>The browser paints the HTML straight away. Links and forms work <b>even before JavaScript loads</b>.<span class="an-line">The diner can eat before the waiter arrives.</span></li>
+                <li><span class="n">6</span>Only the code for this page's routes downloads (code splitting, lazy route discovery).<span class="an-line">Only this table's menu is printed.</span></li>
+                <li><span class="n">7</span>React <b>hydrates</b>: it attaches click handlers to the existing HTML. A <code>clientLoader</code> runs now only if <code>clientLoader.hydrate = true</code>, with <code>HydrateFallback</code> shown meanwhile.<span class="an-line">A painted stage set gets its lights switched on.</span></li>
+                <li><span class="n">8</span>Links on the page are discovered in one batched <code>/__manifest</code> request, and prefetched if <code>prefetch</code> is set.<span class="an-line">The waiter quietly learns the nearby tables' orders.</span></li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>8.2</span> Journey two: a click to another page</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 260" role="img" aria-label="A click from product 1 to product 2, in 6 steps; only the inner frame redraws" xmlns="http://www.w3.org/2000/svg">
+                  <text x="80" y="18" class="b" text-anchor="middle">🧑 Browser</text>
+                  <text x="320" y="18" class="b" text-anchor="middle">🍳 Server</text>
+                  <g class="bx"><rect x="6" y="26" width="148" height="228" rx="10"/></g>
+                  <g class="bx"><rect x="246" y="26" width="148" height="228" rx="10"/></g>
+                  <rect class="rr-addrbar" x="14" y="34" width="132" height="22" rx="11"/>
+                  <text x="80" y="49" class="m sm" text-anchor="middle" data-until="6">/products/1</text>
+                  <text x="80" y="49" class="m sm" text-anchor="middle" data-from="6" style="fill:var(--exam);font-weight:700">/products/2</text>
+                  <rect class="hlr" data-on="6" x="11" y="31" width="138" height="28" rx="13"/>
+                  <g data-from="2" data-until="6"><rect class="rr-progress" x="14" y="59" width="132" height="4" rx="2"/></g>
+                  <rect class="hlr" data-on="2" x="11" y="56" width="138" height="10" rx="4"/>
+                  <rect class="rr-soft" x="14" y="68" width="132" height="16" rx="3"/><text x="80" y="80" class="s" text-anchor="middle" style="font-size:10.5px">header (stays)</text>
+                  <rect class="rr-soft" x="14" y="88" width="36" height="92" rx="3"/>
+                  <rect class="rr-frame" x="54" y="88" width="92" height="92" rx="4"/>
+                  <g data-until="6"><rect class="rr-img" x="70" y="96" width="60" height="50" rx="4"/><text x="100" y="166" class="s" text-anchor="middle">product 1</text></g>
+                  <g data-from="6"><rect class="rr-img2" x="70" y="96" width="60" height="50" rx="4"/><text x="100" y="166" class="s" text-anchor="middle" style="fill:var(--text)">product 2</text></g>
+                  <rect class="hlr" data-on="6" x="51" y="85" width="98" height="98" rx="6"/>
+                  <g class="bx a"><rect x="14" y="188" width="132" height="24" rx="6"/><text x="80" y="204" class="m sm" text-anchor="middle">Link → /products/2</text></g>
+                  <rect class="hlr" data-on="1" x="11" y="185" width="138" height="30" rx="8"/>
+                  <circle class="rr-click" data-on="1" cx="128" cy="200" r="9"/>
+                  <text x="80" y="232" class="s" text-anchor="middle" data-from="2" data-until="6">loading…</text>
+                  <text x="80" y="246" class="s" text-anchor="middle" data-from="5">slow parts fill in later</text>
+                  <g class="bx inf"><rect x="256" y="36" width="128" height="40" rx="7"/><text x="320" y="54" class="m sm" text-anchor="middle">manifest + code</text><text x="320" y="68" class="s" text-anchor="middle" style="font-size:10.5px">if the route is unknown</text></g>
+                  <rect class="hlr" data-on="3" x="253" y="33" width="134" height="46" rx="9"/>
+                  <rect class="rr-ring" x="256" y="88" width="128" height="30" rx="8"/><text x="320" y="107" class="s" text-anchor="middle" style="fill:var(--text)">middleware</text>
+                  <text x="320" y="134" class="s" text-anchor="middle">loaders (.data request)</text>
+                  <g class="rr-lbars" data-on="4"><rect x="262" y="140" width="80" height="8" rx="3"/><rect x="262" y="152" width="64" height="8" rx="3"/><rect x="262" y="164" width="96" height="8" rx="3"/></g>
+                  <rect class="hlr" data-on="4" x="253" y="85" width="134" height="92" rx="9"/>
+                  <g class="bx a"><rect x="256" y="188" width="128" height="24" rx="6"/><text x="320" y="204" class="s" text-anchor="middle" style="fill:var(--text)">main course: awaited</text></g>
+                  <g class="bx dash"><rect x="256" y="220" width="128" height="24" rx="6"/><text x="320" y="236" class="s" text-anchor="middle">dessert: streamed</text></g>
+                  <rect class="hlr" data-on="5" x="253" y="185" width="134" height="62" rx="8"/>
+                  <path class="ln d" d="M154,48 L246,56 M154,120 L246,130 M246,200 L154,130"/>
+                  <g class="pkt" data-at="3" style="--dx:92px;--dy:8px"><circle cx="154" cy="48" r="6"/></g>
+                  <g class="pkt" data-at="4" style="--dx:92px;--dy:10px"><circle cx="154" cy="120" r="6"/></g>
+                  <g class="pkt" data-at="5" style="--dx:-92px;--dy:-70px"><circle cx="246" cy="200" r="6"/></g>
+                </svg>
+              </div>
+              <figcaption>Press Play: no full reload. Only the changed dishes are cooked, and only the inner frame is redrawn.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The visitor clicks <code>&lt;Link to="/products/2"&gt;</code>. React Router catches it, so there is <b>no full page reload</b>.<span class="an-line">The diner moves tables without leaving the building.</span></li>
+                <li><span class="n">2</span><code>useNavigation()</code> switches to loading, which the app can show as a spinner or progress bar.<span class="an-line">A "your food is coming" light turns on.</span></li>
+                <li><span class="n">3</span>If the route is unknown, its manifest and code are fetched first.<span class="an-line">The waiter fetches that table's recipe card.</span></li>
+                <li><span class="n">4</span>Matched loaders run in parallel. Server loaders are called through an automatic <code>fetch</code> (a <code>.data</code> request, which also runs server middleware).<span class="an-line">Only the changed dishes are cooked.</span></li>
+                <li><span class="n">5</span>Critical data is awaited; streamed parts fill in later under Suspense.<span class="an-line">Main course now, dessert when ready.</span></li>
+                <li><span class="n">6</span>Only the changed frames re-render, the address updates, and navigation returns to idle.<span class="an-line">The tablecloth stays and only the plates change.</span></li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>8.3</span> Journey three: a form submit</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 260" role="img" aria-label="A form submit: optimistic preview, the action runs, then a redirect or returned errors, then every loader refreshes" xmlns="http://www.w3.org/2000/svg">
+                  <text x="80" y="18" class="b" text-anchor="middle">🧑 Browser</text>
+                  <text x="320" y="18" class="b" text-anchor="middle">🍳 Server</text>
+                  <g class="bx"><rect x="6" y="26" width="148" height="228" rx="10"/></g>
+                  <g class="bx"><rect x="246" y="26" width="148" height="228" rx="10"/></g>
+                  <rect class="rr-addrbar" x="14" y="34" width="132" height="22" rx="11"/>
+                  <text x="80" y="49" class="m sm" text-anchor="middle" data-until="4">/projects/new</text>
+                  <text x="80" y="49" class="m sm" text-anchor="middle" data-from="4" style="fill:var(--exam);font-weight:700">/projects/9</text>
+                  <rect class="hlr" data-on="4" x="11" y="31" width="138" height="28" rx="13"/>
+                  <g class="bx"><rect x="14" y="64" width="132" height="70" rx="7"/></g>
+                  <text x="22" y="80" class="s">New project</text>
+                  <rect class="rr-field" x="22" y="86" width="116" height="18" rx="4"/><text x="28" y="99" class="m sm">My project</text>
+                  <rect class="rr-btn" x="22" y="110" width="60" height="18" rx="4"/><text x="52" y="123" class="on-btn" text-anchor="middle">Save</text>
+                  <rect class="hlr" data-on="1" x="11" y="61" width="138" height="76" rx="9"/>
+                  <text x="80" y="152" class="s" text-anchor="middle" data-from="2" data-until="6">✓ My project (saving…)</text>
+                  <text x="80" y="152" class="okm" text-anchor="middle" data-from="6" style="font-size:12px">✓ My project</text>
+                  <rect class="hlr" data-on="2" x="11" y="139" width="138" height="20" rx="6"/>
+                  <text x="80" y="176" class="m sm" text-anchor="middle" data-until="2">state: idle</text>
+                  <text x="80" y="176" class="m sm" text-anchor="middle" data-from="2" data-until="4" style="fill:var(--key)">state: submitting</text>
+                  <text x="80" y="176" class="m sm" text-anchor="middle" data-from="4" data-until="7" style="fill:var(--info)">state: loading</text>
+                  <text x="80" y="176" class="m sm" text-anchor="middle" data-from="7" style="fill:var(--tip)">state: idle</text>
+                  <g data-from="5" data-until="6"><g class="bx bad"><rect x="14" y="186" width="132" height="26" rx="6"/><text x="80" y="203" class="s" text-anchor="middle" style="fill:var(--trap)">or: errors returned</text></g></g>
+                  <rect class="hlr" data-on="5" x="11" y="183" width="138" height="32" rx="8"/>
+                  <g class="rr-flash" data-on="6"><rect class="rr-dcard" x="14" y="222" width="40" height="20" rx="4"/><rect class="rr-dcard" x="60" y="222" width="40" height="20" rx="4"/><rect class="rr-dcard" x="106" y="222" width="40" height="20" rx="4"/></g>
+                  <text x="80" y="251" class="s" text-anchor="middle" style="font-size:10.5px">page data</text>
+                  <g class="bx warn"><rect x="256" y="36" width="128" height="44" rx="7"/><text x="320" y="56" class="b" text-anchor="middle">action</text><text x="320" y="72" class="s" text-anchor="middle">saves the order</text></g>
+                  <rect class="hlr" data-on="3" x="253" y="33" width="134" height="50" rx="9"/>
+                  <path class="ln" d="M300,80 L288,96 M340,80 L352,128"/>
+                  <g class="bx a"><rect x="256" y="96" width="92" height="24" rx="6"/><text x="302" y="112" class="m sm" text-anchor="middle">redirect()</text></g>
+                  <rect class="hlr" data-on="4" x="253" y="93" width="98" height="30" rx="8"/>
+                  <g class="bx"><rect x="292" y="128" width="92" height="24" rx="6"/><text x="338" y="144" class="m sm" text-anchor="middle">actionData</text></g>
+                  <rect class="hlr" data-on="5" x="289" y="125" width="98" height="30" rx="8"/>
+                  <text x="320" y="172" class="s" text-anchor="middle">every loader re-runs</text>
+                  <g class="rr-lbars" data-on="6"><rect x="262" y="178" width="86" height="8" rx="3"/><rect x="262" y="190" width="70" height="8" rx="3"/><rect x="262" y="202" width="104" height="8" rx="3"/></g>
+                  <rect class="hlr" data-on="6" x="253" y="160" width="134" height="56" rx="8"/>
+                  <text x="320" y="232" class="s" text-anchor="middle">2xx: refresh all</text>
+                  <text x="320" y="247" class="s" text-anchor="middle">4xx / 5xx: skip (default)</text>
+                  <path class="ln d" d="M154,98 L246,62"/>
+                  <g class="pkt" data-at="1" style="--dx:92px;--dy:-36px"><circle cx="154" cy="98" r="6"/></g>
+                  <g class="pkt" data-at="4" style="--dx:-92px;--dy:-64px"><circle cx="246" cy="109" r="6"/></g>
+                  <g class="pkt" data-at="5" style="--dx:-92px;--dy:58px"><circle cx="246" cy="141" r="6"/></g>
+                  <g class="pkt" data-at="6" style="--dx:-92px;--dy:44px"><circle cx="246" cy="188" r="6"/></g>
+                </svg>
+              </div>
+              <figcaption>Press Play. Step 4 forks: <b>4a</b> a redirect to the new page, or <b>4b</b> returned data such as validation errors.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The visitor submits <code>&lt;Form method="post"&gt;</code> (or a fetcher form).<span class="an-line">The diner hands over an order slip.</span></li>
+                <li><span class="n">2</span>State becomes <b>submitting</b>. <code>formData</code> is available for an optimistic preview.<span class="an-line">The waiter says "coming right up".</span></li>
+                <li><span class="n">3</span>The route's <code>action</code> runs on the server (or <code>clientAction</code> in the browser).<span class="an-line">The kitchen cooks the order.</span></li>
+                <li><span class="n">4a</span>If the action returns <code>redirect("/projects/9")</code>, the router goes there and runs that page's loaders.<span class="an-line">The diner is shown to a new table.</span></li>
+                <li><span class="n">4b</span>Otherwise its result arrives as <code>actionData</code> or <code>fetcher.data</code>, for example validation errors.<span class="an-line">The waiter reports back: "we're out of that".</span></li>
+                <li><span class="n">5</span>If successful (2xx), <b>every active loader re-runs automatically</b>. A 4xx or 5xx result skips this by default.<span class="an-line">Every dish on the table is refreshed.</span></li>
+                <li><span class="n">6</span>The screen re-renders with fresh data and the state returns to idle. Without JavaScript, the same form still posts as plain HTML.<span class="an-line">The bill updates itself.</span></li>
+              </ol>
+            </div>
+          </div>
+          <div class="cheatsheet">
+            <h3>Remember</h3>
+            <ul>
+              <li>First visit: HTML first, JavaScript later</li>
+              <li>Clicks: no full reload, only changed frames redraw</li>
+              <li>Submits: save, then everything refreshes</li>
+              <li>Forms work even without JavaScript</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================================ 9 -->
+        <section class="domain" id="rr9-rendering" data-mod="9" data-short="Rendering choices">
+          <div class="domain-head"><span class="domain-num">9</span><h2>Rendering choices</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Where and when is the HTML page made? Cooked <b>fresh for each visit</b>, <b>prepared ahead</b>, or <b>finished by the diner</b> at home? One setting in <code>react-router.config.ts</code> picks it.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>SSR (server-side rendering)</dt><dd>The server builds finished HTML for each visit.</dd>
+              <dt>Pre-rendering</dt><dd>HTML built once, at build time, and served as files.</dd>
+              <dt>SPA mode</dt><dd>The browser builds the page from a nearly empty shell.</dd>
+              <dt>Build time</dt><dd>When you package the app, before anyone visits.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>9.1</span> Three kitchens</h3>
+          <div class="grid">
+            <div class="card accent" data-kind="ssr"><h3><span class="ico">🍳</span> Cook to order (SSR)</h3><p><code class="k">ssr: true</code> (the default)</p><p>Builds HTML on every request. Needs hosting that can run a server.</p></div>
+            <div class="card accent" data-kind="pre"><h3><span class="ico">🥡</span> Meal prep (pre-render)</h3><p><code class="k">prerender: ["/", "/about"]</code></p><p>Runs loaders <b>at build time</b> and writes an <code>.html</code> file for first visits plus a <code>.data</code> file for later clicks, for each address. Can also be <code>true</code> or a function that lists pages such as blog posts.</p></div>
+            <div class="card accent" data-kind="spa"><h3><span class="ico">📦</span> Meal kit (SPA mode)</h3><p><code class="k">ssr: false</code></p><p>Builds only the root shell into <code>index.html</code>. All data work happens in the browser with <code>clientLoader</code> and <code>clientAction</code>. Cheap to deliver, but the diner does the cooking.</p></div>
+          </div>
+          <figure class="dg">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 190" role="img" aria-label="Where the HTML is made: SSR on the server at each visit, pre-render at build time, SPA in the browser" xmlns="http://www.w3.org/2000/svg">
+                <text x="175" y="18" class="b" text-anchor="middle">Build</text><text x="175" y="33" class="s" text-anchor="middle">once</text>
+                <text x="265" y="18" class="b" text-anchor="middle">Server</text><text x="265" y="33" class="s" text-anchor="middle">each visit</text>
+                <text x="355" y="18" class="b" text-anchor="middle">Browser</text><text x="355" y="33" class="s" text-anchor="middle">on the device</text>
+                <rect class="rd-row" data-row="ssr" x="4" y="44" width="392" height="42" rx="8"/>
+                <rect class="rd-row" data-row="pre" x="4" y="92" width="392" height="42" rx="8"/>
+                <rect class="rd-row" data-row="spa" x="4" y="140" width="392" height="42" rx="8"/>
+                <path class="ln ax" d="M130,44 V182 M220,44 V182 M310,44 V182"/>
+                <text x="12" y="62" class="b">SSR</text><text x="12" y="77" class="s">cook to order</text>
+                <text x="12" y="110" class="b">Pre-render</text><text x="12" y="125" class="s">meal prep</text>
+                <text x="12" y="158" class="b">SPA mode</text><text x="12" y="173" class="s">meal kit</text>
+                <circle class="rd-made" cx="265" cy="65" r="15"/><text x="265" y="69" class="m" text-anchor="middle" style="font-size:9px">HTML</text>
+                <circle class="rd-made" cx="175" cy="113" r="15"/><text x="175" y="117" class="m" text-anchor="middle" style="font-size:9px">HTML</text>
+                <text x="198" y="117" class="s">+ .data</text>
+                <circle class="rd-shell" cx="175" cy="161" r="13"/><text x="175" y="165" class="m" text-anchor="middle" style="font-size:9px">shell</text>
+                <circle class="rd-made" cx="355" cy="161" r="15"/><text x="355" y="165" class="m" text-anchor="middle" style="font-size:9px">page</text>
+              </svg>
+            </div>
+            <figcaption>Where the plate gets cooked. Use the picker below to highlight a row.</figcaption>
+          </figure>
+
+          <h3 class="sub"><span>9.2</span> Pick one</h3>
+          <div class="picker" data-picker>
+            <p class="pk-q">What are you building?</p>
+            <div class="picker-btns">
+              <button type="button" data-pick="ssr" aria-pressed="false">👤 Personalised pages that search engines must see</button>
+              <button type="button" data-pick="pre" aria-pressed="false">📰 Marketing pages, docs or a blog that change only when you publish</button>
+              <button type="button" data-pick="spa" aria-pressed="false">📊 A logged-in dashboard with its own API, cheapest hosting</button>
+            </div>
+            <p class="pk-out" aria-live="polite">Tap a choice to see the match.</p>
+          </div>
+          <p class="muted" style="font-size:13.5px">The docs give no official decision chart. This guide is drawn from the trade-offs they state.</p>
+          <div class="callout key"><div><strong class="label">They combine</strong><code>ssr: true</code> plus a <code>prerender</code> list: listed pages are static, other pages are server-rendered as usual. <code>ssr: false</code> plus <code>prerender</code>: a static site with a single-page fallback.</div></div>
+          <div class="callout trap"><div><strong class="label">SPA mode rules</strong>No <code>headers</code> or <code>action</code> exports. Server loaders only on the root (or on pre-rendered routes). The root still renders once at build time, so code must not touch <code>window</code> during the first render.</div></div>
+          <div class="callout info"><div><strong class="label">New and unstable</strong>v8.5.0 added a fourth option, <code>ssr: "unstable_api-only"</code>: a server for loaders and actions, but only a root HTML shell is served.</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>// react-router.config.ts
+ssr: true                       // default: cook to order
+prerender: ["/", "/about"]      // or: prerender: true
+ssr: false                      // SPA mode
+ssr: "unstable_api-only"        // v8.5.0, unstable</code></pre>
+          </div></details>
+        </section>
+
+        <!-- ================================================================ 10 -->
+        <section class="domain" id="rr10-speed-deploy" data-mod="10" data-short="Speed and going live">
+          <div class="domain-head"><span class="domain-num">10</span><h2>Speed and going live</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Speed tricks come built in: each page ships only its own code. To go live you take one of <b>two roads</b>: a full server, or a plain file host.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Code splitting</dt><dd>Downloading only the code the current page needs.</dd>
+              <dt>Lazy route discovery</dt><dd>Telling the browser about other routes only when links to them appear.</dd>
+              <dt>Adapter</dt><dd>Glue that runs the app on a given server platform.</dd>
+              <dt>Rewrite rule</dt><dd>A host setting that sends every address to one file.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>10.1</span> Built-in speed</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">✂️</span> Per-route code</h3><p>Each route is its own code bundle. Since v8, browser-only parts like <code>clientLoader</code> get their own chunks too (<code>splitRouteModules</code>, on by default).</p></div>
+            <div class="card"><h3><span class="ico">🔭</span> Lazy route discovery</h3><p>Sends only the routes needed for the first page. Helps most in apps with hundreds of routes.</p></div>
+            <div class="card"><h3><span class="ico">🏷️</span> Cache headers</h3><p>A route's <code>headers</code> export sets caching, like <code>Cache-Control: max-age=3600, s-maxage=86400</code>. The deepest route's headers win.</p></div>
+            <div class="card"><h3><span class="ico">♨️</span> Hot reload</h3><p>Vite keeps form inputs and other state while you edit code.</p></div>
+          </div>
+          <div class="callout tip"><div><strong class="label">Why plain HTML first</strong>The docs put it in one line: "100% of your users have slow connections 5% of the time".</div></div>
+
+          <h3 class="sub"><span>10.2</span> Two roads to go live</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 250" role="img" aria-label="The build splits into build/server and build/client; one road goes to a full-stack host, the other to a static file host with a rewrite rule" xmlns="http://www.w3.org/2000/svg">
+                <g class="bx a"><rect x="140" y="8" width="120" height="34" rx="8"/><text x="200" y="30" class="m" text-anchor="middle">build</text></g>
+                <path class="ln a" d="M200,42 L100,86 M200,42 L300,86 M100,118 V150 M300,118 V150"/>
+                <path class="ln d" d="M300,118 L150,150"/>
+                <g class="bx"><rect x="40" y="86" width="120" height="32" rx="7"/><text x="100" y="107" class="m sm" text-anchor="middle">build/server</text></g>
+                <g class="bx"><rect x="240" y="86" width="120" height="32" rx="7"/><text x="300" y="107" class="m sm" text-anchor="middle">build/client</text></g>
+                <g class="bx ok"><rect x="8" y="150" width="184" height="94" rx="8"/></g>
+                <text x="100" y="170" class="b" text-anchor="middle" style="fill:var(--tip)">Fullstack hosting</text>
+                <text x="100" y="188" class="s" text-anchor="middle">Docker templates</text>
+                <text x="100" y="204" class="s" text-anchor="middle">Vercel · Netlify</text>
+                <text x="100" y="220" class="s" text-anchor="middle">Cloudflare Workers</text>
+                <text x="100" y="236" class="s" text-anchor="middle">EdgeOne Pages</text>
+                <g class="bx warn"><rect x="208" y="150" width="184" height="94" rx="8"/></g>
+                <text x="300" y="170" class="b" text-anchor="middle" style="fill:var(--key)">Static file host</text>
+                <text x="300" y="188" class="s" text-anchor="middle">upload build/client</text>
+                <g class="dp-sign"><rect class="rr-addrbar" x="220" y="198" width="160" height="22" rx="5"/><text x="300" y="213" class="m sm" text-anchor="middle">/*  /index.html  200</text></g>
+                <text x="300" y="236" class="s" text-anchor="middle">the rewrite rule</text>
+                <g class="dp-l"><circle class="rv-dot" cx="200" cy="42" r="6"/></g>
+                <g class="dp-r"><circle class="rv-dot" cx="200" cy="42" r="6"/></g>
+              </svg>
+            </div>
+            <figcaption>Animated: the build box splits into <code>build/server</code> and <code>build/client</code>. One road leads to a full-stack host, the other to any static file host with a rewrite sign.</figcaption>
+          </figure>
+          <div class="grid cols-2">
+            <div class="card accent"><h3><span class="ico">🖥️</span> Fullstack hosting</h3><ul><li>Official Docker templates: <code>default</code>, <code>node-custom-server</code> (Express), <code>node-postgres</code> (Postgres and Drizzle)</li><li>They run on AWS ECS, Google Cloud Run, Azure Container Apps, DigitalOcean, Fly.io or Railway</li><li>Vercel, Cloudflare Workers, Netlify and EdgeOne Pages keep their own templates</li><li>Adapters: <code>@react-router/express</code>, <code>@react-router/architect</code> (AWS), <code>@react-router/cloudflare</code>, and the built-in <code>@react-router/serve</code> used by <code>npm start</code></li></ul></div>
+            <div class="card accent"><h3><span class="ico">🗂️</span> Static hosting</h3><ol><li>Run <code>react-router build</code></li><li>Upload <code>build/client</code> to any file host</li><li>Add a rule that sends every address to <code>index.html</code></li></ol></div>
+          </div>
+          <div class="callout trap"><div><strong class="label">Pages give 404?</strong>If valid pages return 404 on a static host, the rewrite rule is missing.</div></div>
+          <div class="callout info"><div><strong class="label">Leave for later</strong>React Server Components are available but "experimental and subject to breaking changes in minor/patch releases".</div></div>
+        </section>
+
+        <!-- ================================================================ 11 -->
+        <section class="domain" id="rr11-v8" data-mod="11" data-short="What changed in v8">
+          <div class="domain-head"><span class="domain-num">11</span><h2>What changed in v8</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>v8 <b>changes the floor, not the house</b>. Routes, recipe cards, loaders, actions, fetchers, refresh, safety nets and the three kitchens all work the same. v8 raised the minimum versions, removed old names and made former options the default.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Future flag</dt><dd>A switch to try next-version behaviour early. It becomes the default later.</dd>
+              <dt>Deprecated</dt><dd>Still works for now, but on its way out.</dd>
+              <dt>Unstable</dt><dd>An experiment that may change in any release.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>11.1</span> The upgrade path</h3>
+          <div class="flow">
+            <div class="step"><b>Turn on 5 flags in v7</b><span>The <code>v8_*</code> future flags.</span></div>
+            <div class="step"><b>Switch to v8</b><span>"Mostly a stabilization release".</span></div>
+            <div class="step"><b>Remove the flags</b><span>Framework mode errors if they are left in.</span></div>
+          </div>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 200" role="img" aria-label="Five v8 future flags switch on one by one, then turn into default behaviour" xmlns="http://www.w3.org/2000/svg">
+                <g class="fl-row" style="--i:0"><g class="fl-tog"><rect class="fl-track" x="10" y="16" width="44" height="22" rx="11"/><circle class="fl-knob" cx="22" cy="27" r="8"/></g>
+                  <text x="66" y="32" class="m sm">v8_middleware</text>
+                  <g class="fl-badge"><rect x="304" y="15" width="88" height="24" rx="12"/><text x="348" y="31" text-anchor="middle">default ✓</text></g></g>
+                <g class="fl-row" style="--i:1"><g class="fl-tog"><rect class="fl-track" x="10" y="54" width="44" height="22" rx="11"/><circle class="fl-knob" cx="22" cy="65" r="8"/></g>
+                  <text x="66" y="70" class="m sm">v8_splitRouteModules</text>
+                  <g class="fl-badge"><rect x="304" y="53" width="88" height="24" rx="12"/><text x="348" y="69" text-anchor="middle">default ✓</text></g></g>
+                <g class="fl-row" style="--i:2"><g class="fl-tog"><rect class="fl-track" x="10" y="92" width="44" height="22" rx="11"/><circle class="fl-knob" cx="22" cy="103" r="8"/></g>
+                  <text x="66" y="108" class="m sm">v8_viteEnvironmentApi</text>
+                  <g class="fl-badge"><rect x="304" y="91" width="88" height="24" rx="12"/><text x="348" y="107" text-anchor="middle">default ✓</text></g></g>
+                <g class="fl-row" style="--i:3"><g class="fl-tog"><rect class="fl-track" x="10" y="130" width="44" height="22" rx="11"/><circle class="fl-knob" cx="22" cy="141" r="8"/></g>
+                  <text x="66" y="146" class="m sm">v8_passThroughRequests</text>
+                  <g class="fl-badge"><rect x="304" y="129" width="88" height="24" rx="12"/><text x="348" y="145" text-anchor="middle">default ✓</text></g></g>
+                <g class="fl-row" style="--i:4"><g class="fl-tog"><rect class="fl-track" x="10" y="168" width="44" height="22" rx="11"/><circle class="fl-knob" cx="22" cy="179" r="8"/></g>
+                  <text x="66" y="184" class="m sm">v8_trailingSlashAware…</text>
+                  <g class="fl-badge"><rect x="304" y="167" width="88" height="24" rx="12"/><text x="348" y="183" text-anchor="middle">default ✓</text></g></g>
+              </svg>
+            </div>
+            <figcaption>Animated: the five future flags switch on one by one in v7, then dissolve into "default" badges in v8. The last one is <code>v8_trailingSlashAwareDataRequests</code>.</figcaption>
+          </figure>
+
+          <h3 class="sub"><span>11.2</span> The changes, card by card</h3>
+          <div class="grid">
+            <div class="card"><h4>Minimum versions</h4><p><b>v7:</b> Node 20+, React 18+</p><p><b>v8:</b> Node 22.22.0+, React 19.2.7+, Vite 7+, ESM-only packages</p></div>
+            <div class="card"><h4>Package name</h4><p><b>v7:</b> <code>react-router-dom</code> still existed as a re-export</p><p><b>v8:</b> removed. Import from <code>react-router</code> and <code>react-router/dom</code></p></div>
+            <div class="card"><h4>Middleware</h4><p><b>v7:</b> stable since 7.9.0 (12 Sep 2025), behind <code>future.v8_middleware</code></p><p><b>v8:</b> always on, flag removed. <code>context</code> is always a <code>RouterContextProvider</code></p></div>
+            <div class="card"><h4>Route module splitting</h4><p><b>v7:</b> opt-in flag</p><p><b>v8:</b> top-level <code>splitRouteModules</code>, on by default</p></div>
+            <div class="card"><h4>Other flags</h4><p><b>v7:</b> <code>v8_viteEnvironmentApi</code>, <code>v8_passThroughRequests</code>, <code>v8_trailingSlashAwareDataRequests</code> opt-in</p><p><b>v8:</b> default behaviour</p></div>
+            <div class="card"><h4>meta data</h4><p><b>v7:</b> the deprecated <code>data</code> argument still worked</p><p><b>v8:</b> removed from <code>meta</code>, <code>matches</code> and <code>useMatches()</code>. Use <code>loaderData</code></p></div>
+            <div class="card"><h4>Cloudflare dev</h4><p><b>v7:</b> <code>@react-router/dev/vite/cloudflare</code> proxy</p><p><b>v8:</b> removed. Use <code>@cloudflare/vite-plugin</code></p></div>
+            <div class="card"><h4>Streaming engine</h4><p><b>v7:</b> Node pipeable streams</p><p><b>v8:</b> since 8.2.0, non-Node runtimes default to Web Streams</p></div>
+            <div class="card"><h4>Speed</h4><p><b>v8.4.0:</b> fewer re-renders, plus an unstable faster route matcher (benchmarks 19–38% faster at 100 routes)</p></div>
+            <div class="card"><h4>Link transitions</h4><p><b>v7:</b> <code>viewTransition</code> prop</p><p><b>v8.5.0:</b> deprecated in favour of React's <code>&lt;ViewTransition&gt;</code></p></div>
+            <div class="card"><h4>New experiments</h4><p><code>ssr: "unstable_api-only"</code> (8.5.0), <code>&lt;Await unstable_promise&gt;</code> (8.5.1), RSC Framework mode, custom route discovery</p></div>
+            <div class="card"><h4>Support</h4><p><b>v7:</b> still patched (7.18.7, 24 Nov 2026)</p><p><b>v8:</b> current. v6 and Remix v2 are end-of-life. Major versions now come yearly</p></div>
+          </div>
+          <div class="callout key"><div><strong class="label">The lesson</strong>Install v8, learn the v7 mental model, and expect almost nothing to change. Because loaders run in parallel, security checks belong in middleware or in each loader: that is why v8 made middleware permanent.</div></div>
+          <div class="callout info"><div><strong class="label">Not confirmed in the research</strong>The v7 and v8 wording of each page was not compared line by line. The full list of <code>useNavigation().state</code> values was confirmed only on the fetcher page.</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>// v8: react-router-dom is gone
+import { ... } from "react-router";
+import { ... } from "react-router/dom";</code></pre>
+          </div></details>
+        </section>
+
+        <!-- ================================================================ 12 -->
+        <section class="domain" id="rr12-glossary" data-short="Glossary">
+          <div class="domain-head"><span class="domain-num">12</span><h2>Glossary</h2></div>
+          <p>Tap a card to flip it. Type to find a word.</p>
+          <input class="search" type="search" placeholder="Find a word, e.g. hydration" data-gloss aria-label="Find a glossary word">
+          <div id="gloss">
+            <div class="gloss-group"><h3 class="sub"><span>🧭</span> Routing</h3><div class="flashcards">
+              <details class="qa"><summary>Route</summary><div class="a"><p>One web address and the file that handles it (a table number and its recipe card).</p></div></details>
+              <details class="qa"><summary>routes.ts</summary><div class="a"><p>The single list mapping every address to its file (the floor plan).</p></div></details>
+              <details class="qa"><summary>Route module</summary><div class="a"><p>The file for one route, holding its screen, data fetching, saving and error handling.</p></div></details>
+              <details class="qa"><summary>root.tsx</summary><div class="a"><p>The outermost route, which draws the real HTML page that every other page sits inside.</p></div></details>
+              <details class="qa"><summary>Nested route / &lt;Outlet/&gt;</summary><div class="a"><p>A page inside a page; the Outlet is the empty frame where the child appears.</p></div></details>
+              <details class="qa"><summary>Index route</summary><div class="a"><p>The default child shown at the parent's own address.</p></div></details>
+              <details class="qa"><summary>Layout route</summary><div class="a"><p>A shared frame (for example a sidebar) that adds no words to the address.</p></div></details>
+              <details class="qa"><summary>Dynamic segment / params</summary><div class="a"><p>A variable part of an address, such as the <code>1</code> in <code>/products/1</code>.</p></div></details>
+              <details class="qa"><summary>Error boundary</summary><div class="a"><p>A safety net that shows an error message in one area instead of crashing the page.</p></div></details>
+              <details class="qa"><summary>Prefetch</summary><div class="a"><p>Loading the next page's code and data before the click.</p></div></details>
+              <details class="qa"><summary>Lazy route discovery</summary><div class="a"><p>Telling the browser about other routes only when links to them appear.</p></div></details>
+            </div></div>
+            <div class="gloss-group"><h3 class="sub"><span>🍳</span> Data</h3><div class="flashcards">
+              <details class="qa"><summary>Loader</summary><div class="a"><p>Server code that fetches a page's data before the page shows.</p></div></details>
+              <details class="qa"><summary>clientLoader</summary><div class="a"><p>The same idea, but running in the browser.</p></div></details>
+              <details class="qa"><summary>Action</summary><div class="a"><p>Server code that handles a form submission (saving, deleting).</p></div></details>
+              <details class="qa"><summary>Revalidation</summary><div class="a"><p>Automatically re-running loaders after a save so the screen shows fresh data.</p></div></details>
+              <details class="qa"><summary>Fetcher</summary><div class="a"><p>A way to load or save data without changing the address or adding history.</p></div></details>
+              <details class="qa"><summary>Pending UI</summary><div class="a"><p>Spinners or dimming shown while something is loading or saving.</p></div></details>
+              <details class="qa"><summary>Optimistic UI</summary><div class="a"><p>Showing the expected result immediately, before the server confirms.</p></div></details>
+              <details class="qa"><summary>Middleware</summary><div class="a"><p>Code that wraps every request in nested layers, for example a login check.</p></div></details>
+              <details class="qa"><summary>Context</summary><div class="a"><p>A typed "note" that middleware passes down to loaders and actions.</p></div></details>
+            </div></div>
+            <div class="gloss-group"><h3 class="sub"><span>🖼️</span> Rendering</h3><div class="flashcards">
+              <details class="qa"><summary>SSR (server-side rendering)</summary><div class="a"><p>The server builds finished HTML for each visit.</p></div></details>
+              <details class="qa"><summary>Pre-rendering / static</summary><div class="a"><p>HTML built once at build time and served as files.</p></div></details>
+              <details class="qa"><summary>SPA mode</summary><div class="a"><p>The browser builds the page from a nearly empty shell.</p></div></details>
+              <details class="qa"><summary>Hydration</summary><div class="a"><p>The browser "wakes up" server-made HTML by attaching JavaScript to it.</p></div></details>
+              <details class="qa"><summary>HydrateFallback</summary><div class="a"><p>A placeholder shown while browser-side data is still loading on first visit.</p></div></details>
+              <details class="qa"><summary>Streaming / Suspense / &lt;Await&gt;</summary><div class="a"><p>Sending the page in parts so slow data fills in later behind a placeholder.</p></div></details>
+              <details class="qa"><summary>Progressive enhancement</summary><div class="a"><p>Pages and forms that work as plain HTML first, then get better with JavaScript.</p></div></details>
+              <details class="qa"><summary>RSC (React Server Components)</summary><div class="a"><p>Components that run only on the server; experimental here.</p></div></details>
+            </div></div>
+            <div class="gloss-group"><h3 class="sub"><span>🛠️</span> Tooling</h3><div class="flashcards">
+              <details class="qa"><summary>Code splitting</summary><div class="a"><p>Downloading only the code the current page needs.</p></div></details>
+              <details class="qa"><summary>Typegen</summary><div class="a"><p>Auto-generated type files that let the editor catch wrong data shapes.</p></div></details>
+              <details class="qa"><summary>Vite</summary><div class="a"><p>The fast build and dev tool that Framework mode plugs into.</p></div></details>
+              <details class="qa"><summary>Adapter</summary><div class="a"><p>Glue that runs the app on a given server platform (Express, AWS, Cloudflare).</p></div></details>
+              <details class="qa"><summary>Future flag</summary><div class="a"><p>A switch to try next-version behaviour early, which becomes the default later.</p></div></details>
+            </div></div>
+          </div>
+        </section>
+
+        <!-- ================================================================ 13 -->
+        <section class="domain" id="rr13-quiz" data-short="Quick quiz">
+          <div class="domain-head"><span class="domain-num">13</span><h2>Quick quiz</h2></div>
+          <p>Tap an answer. The right one turns green.</p>
+          <div class="quiz" data-answer="B">
+            <div class="q">In the restaurant, what is the loader?</div>
+            <ol><li>The order slip</li><li>The kitchen preparing the plate before it is served</li><li>The diner</li><li>The table number</li></ol>
+            <div class="why"><b>B.</b> A loader fetches the page's data before the page shows. The order slip is the action.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">Where do you list every web address of the app?</div>
+            <ol><li><code>root.tsx</code></li><li><code>routes.ts</code></li><li><code>vite.config.ts</code></li><li><code>entry.client.tsx</code></li></ol>
+            <div class="why"><b>B.</b> <code>app/routes.ts</code> is the floor plan that maps every address to its file.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">Which helper adds a shared frame without adding a word to the address?</div>
+            <ol><li><code>prefix()</code></li><li><code>layout()</code></li><li><code>index()</code></li><li><code>route()</code></li></ol>
+            <div class="why"><b>B.</b> layout adds a frame but no address word. prefix is the opposite.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">A parent loader checks the login. Are the child loaders protected?</div>
+            <ol><li>Yes, children always run after the parent</li><li>No: all matched loaders run in parallel, so use middleware or check in each loader</li><li>Only in SPA mode</li><li>Only when prefetch is on</li></ol>
+            <div class="why"><b>B.</b> The docs say a parent loader cannot "protect" child loaders. That is why v8 made middleware permanent.</div>
+          </div>
+          <div class="quiz" data-answer="C">
+            <div class="q">After a successful form save, what does React Router do?</div>
+            <ol><li>Nothing, you refresh by hand</li><li>Reloads the whole browser page</li><li>Re-runs every active loader on the page automatically</li><li>Clears all data</li></ol>
+            <div class="why"><b>C.</b> Automatic revalidation keeps the screen in sync with the server, without extra code.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">You want to mark a message as read without changing the address. Which do you use?</div>
+            <ol><li><code>&lt;Form&gt;</code></li><li><code>useFetcher</code></li><li><code>redirect()</code></li><li><code>useNavigate()</code></li></ol>
+            <div class="why"><b>B.</b> A fetcher does something here; a Form goes somewhere.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">A blog that changes only when you publish a post. Which rendering choice fits best?</div>
+            <ol><li>SSR on every request</li><li>Pre-rendering at build time</li><li>SPA mode</li><li>React Server Components</li></ol>
+            <div class="why"><b>B.</b> Meal prep: cooked ahead, served instantly as files.</div>
+          </div>
+          <div class="quiz" data-answer="A">
+            <div class="q">Your static site returns 404 for valid pages. What is missing?</div>
+            <ol><li>The rule that sends every address to <code>index.html</code></li><li>A loader on every page</li><li>The <code>v8_middleware</code> flag</li><li>An ErrorBoundary</li></ol>
+            <div class="why"><b>A.</b> Static hosts need a rewrite rule such as <code>/*  /index.html  200</code>.</div>
+          </div>
+        </section>
+
+        <!-- ================================================================ Sources -->
+        <section class="domain" id="rr-sources" data-short="Sources">
+          <div class="domain-head"><span class="domain-num">S</span><h2>Sources</h2></div>
+          <p class="muted">The pages cited in the research report. Docs at reactrouter.com default to v8 (8.5.3).</p>
+          <div class="src-grid">
+            <div class="card"><h4>Start</h4><ul>
+              <li><a href="https://reactrouter.com/home" target="_blank" rel="noopener">Home</a></li>
+              <li><a href="https://reactrouter.com/start/modes" target="_blank" rel="noopener">Picking a Mode</a></li>
+              <li><a href="https://reactrouter.com/start/framework/installation" target="_blank" rel="noopener">Installation</a></li>
+              <li><a href="https://reactrouter.com/start/framework/routing" target="_blank" rel="noopener">Routing</a></li>
+              <li><a href="https://reactrouter.com/start/framework/route-module" target="_blank" rel="noopener">Route Module</a></li>
+              <li><a href="https://reactrouter.com/start/framework/data-loading" target="_blank" rel="noopener">Data Loading</a></li>
+              <li><a href="https://reactrouter.com/start/framework/actions" target="_blank" rel="noopener">Actions</a></li>
+              <li><a href="https://reactrouter.com/start/framework/navigating" target="_blank" rel="noopener">Navigating</a></li>
+              <li><a href="https://reactrouter.com/start/framework/pending-ui" target="_blank" rel="noopener">Pending UI</a></li>
+              <li><a href="https://reactrouter.com/start/framework/rendering" target="_blank" rel="noopener">Rendering Strategies</a></li>
+              <li><a href="https://reactrouter.com/start/framework/deploying" target="_blank" rel="noopener">Deploying</a></li>
+            </ul></div>
+            <div class="card"><h4>How-to</h4><ul>
+              <li><a href="https://reactrouter.com/how-to/middleware" target="_blank" rel="noopener">Middleware</a></li>
+              <li><a href="https://reactrouter.com/how-to/error-boundary" target="_blank" rel="noopener">Error Boundaries</a></li>
+              <li><a href="https://reactrouter.com/how-to/optimize-revalidation" target="_blank" rel="noopener">Revalidation</a></li>
+              <li><a href="https://reactrouter.com/how-to/suspense" target="_blank" rel="noopener">Streaming with Suspense</a></li>
+              <li><a href="https://reactrouter.com/how-to/pre-rendering" target="_blank" rel="noopener">Pre-Rendering</a></li>
+              <li><a href="https://reactrouter.com/how-to/spa" target="_blank" rel="noopener">SPA guide</a></li>
+              <li><a href="https://reactrouter.com/how-to/client-data" target="_blank" rel="noopener">Client Data</a></li>
+              <li><a href="https://reactrouter.com/how-to/headers" target="_blank" rel="noopener">HTTP Headers</a></li>
+              <li><a href="https://reactrouter.com/how-to/file-route-conventions" target="_blank" rel="noopener">File Route Conventions</a></li>
+              <li><a href="https://reactrouter.com/how-to/react-server-components" target="_blank" rel="noopener">React Server Components</a></li>
+            </ul></div>
+            <div class="card"><h4>Explanation</h4><ul>
+              <li><a href="https://reactrouter.com/explanation/state-management" target="_blank" rel="noopener">State Management</a></li>
+              <li><a href="https://reactrouter.com/explanation/type-safety" target="_blank" rel="noopener">Type Safety</a></li>
+              <li><a href="https://reactrouter.com/explanation/form-vs-fetcher" target="_blank" rel="noopener">Form vs fetcher</a></li>
+              <li><a href="https://reactrouter.com/explanation/race-conditions" target="_blank" rel="noopener">Race Conditions</a></li>
+              <li><a href="https://reactrouter.com/explanation/progressive-enhancement" target="_blank" rel="noopener">Progressive Enhancement</a></li>
+              <li><a href="https://reactrouter.com/explanation/code-splitting" target="_blank" rel="noopener">Code Splitting</a></li>
+              <li><a href="https://reactrouter.com/explanation/lazy-route-discovery" target="_blank" rel="noopener">Lazy Route Discovery</a></li>
+              <li><a href="https://reactrouter.com/explanation/hot-module-replacement" target="_blank" rel="noopener">Hot Module Replacement</a></li>
+            </ul></div>
+            <div class="card"><h4>API reference</h4><ul>
+              <li><a href="https://reactrouter.com/api/framework-conventions/root.tsx" target="_blank" rel="noopener">root.tsx</a></li>
+              <li><a href="https://reactrouter.com/api/framework-conventions/entry.server.tsx" target="_blank" rel="noopener">entry.server.tsx</a></li>
+              <li><a href="https://reactrouter.com/api/framework-conventions/react-router.config.ts" target="_blank" rel="noopener">react-router.config.ts</a></li>
+              <li><a href="https://reactrouter.com/api/components/Link" target="_blank" rel="noopener">Link</a></li>
+              <li><a href="https://reactrouter.com/api/components/Form" target="_blank" rel="noopener">Form</a></li>
+              <li><a href="https://reactrouter.com/api/hooks/useFetcher" target="_blank" rel="noopener">useFetcher</a></li>
+              <li><a href="https://reactrouter.com/api/hooks/useRevalidator" target="_blank" rel="noopener">useRevalidator</a></li>
+              <li><a href="https://reactrouter.com/api/utils/data" target="_blank" rel="noopener">data</a></li>
+              <li><a href="https://reactrouter.com/api/other-api/adapter" target="_blank" rel="noopener">Adapter API</a></li>
+            </ul></div>
+            <div class="card"><h4>Versions</h4><ul>
+              <li><a href="https://reactrouter.com/changelog" target="_blank" rel="noopener">Changelog</a></li>
+              <li><a href="https://reactrouter.com/upgrading/v7" target="_blank" rel="noopener">Updating from v7</a></li>
+              <li><a href="https://remix.run/blog/react-router-v8" target="_blank" rel="noopener">Remix blog: React Router v8</a></li>
+              <li><a href="https://github.com/remix-run/react-router-templates/tree/main/default" target="_blank" rel="noopener">Default template (GitHub)</a></li>
+            </ul></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">React Router Framework Mode notes · <a href="../index.html">Back to Learning</a></footer>
+  <script src="notes.js"></script>
+  <script>
+  /* Page-only behaviour: step-throughs, looping-animation controls, rendering picker, glossary filter. */
+  (() => {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /* 1. Step-throughs: [data-stepper] with an svg and ol.sx-steps */
+    document.querySelectorAll("[data-stepper]").forEach((box) => {
+      const list = box.querySelector("ol.sx-steps");
+      if (!list) return;
+      const steps = [...list.children];
+      const N = steps.length;
+      const vis = [...box.querySelectorAll("[data-from], [data-until]")];
+      const lit = [...box.querySelectorAll("[data-on]")];
+      const pk = [...box.querySelectorAll("[data-at]")];
+      const ctl = document.createElement("div");
+      ctl.className = "sx-ctl";
+      ctl.innerHTML = '<button type="button" class="pri" data-a="play">▶ Play</button>'
+        + '<button type="button" data-a="back" aria-label="Previous step">◀ Back</button>'
+        + '<button type="button" data-a="next" aria-label="Next step">Next ▶</button>'
+        + '<button type="button" data-a="reset">↺ Reset</button>'
+        + '<span class="sx-at" aria-live="polite"></span>';
+      const at = ctl.querySelector(".sx-at");
+      const playBtn = ctl.querySelector('[data-a="play"]');
+      let k = 0, timer = null;
+      const label = (i) => steps[i - 1]?.querySelector(".n")?.textContent.trim() || String(i);
+      const paint = (move) => {
+        vis.forEach((el) => {
+          const f = el.dataset.from ? +el.dataset.from : 0;
+          const u = el.dataset.until ? +el.dataset.until : Infinity;
+          el.classList.toggle("off", !(k >= f && k < u));
+        });
+        lit.forEach((el) => el.classList.toggle("lit", el.dataset.on.split(/\s+/).includes(String(k))));
+        pk.forEach((el) => {
+          el.classList.remove("go");
+          if (move && !reduce && +el.dataset.at === k) { void el.getBoundingClientRect(); el.classList.add("go"); }
+        });
+        steps.forEach((li, i) => {
+          li.classList.toggle("now", i + 1 === k);
+          li.classList.toggle("past", i + 1 < k);
+          if (i + 1 === k) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+        });
+        at.textContent = k ? `Step ${label(k)} · ${k}/${N}` : `${N} steps`;
+      };
+      const go = (n, move = true) => { k = Math.max(0, Math.min(N, n)); paint(move); };
+      const stop = () => { clearInterval(timer); timer = null; playBtn.textContent = "▶ Play"; };
+      ctl.addEventListener("click", (e) => {
+        const a = e.target.closest("button")?.dataset.a;
+        if (!a) return;
+        if (a === "play") {
+          if (timer) { stop(); return; }
+          if (k >= N) go(0, false);
+          playBtn.textContent = "⏸ Pause";
+          go(k + 1);
+          timer = setInterval(() => { if (k >= N) { stop(); return; } go(k + 1); }, 2200);
+          return;
+        }
+        stop();
+        if (a === "next") go(k + 1);
+        else if (a === "back") go(k - 1);
+        else if (a === "reset") go(0, false);
+      });
+      steps.forEach((li, i) => {
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        const pick = () => { stop(); go(i + 1); };
+        li.addEventListener("click", pick);
+        li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+      });
+      list.before(ctl);
+      go(reduce ? N : 0, false);   // reduced motion: start on the finished picture
+    });
+
+    /* 2. Looping animations: Pause / Play button, pause off screen.
+          Reduced motion: they start still (final picture); the button can play them on request. */
+    document.querySelectorAll("figure.loop").forEach((fig) => {
+      const bar = document.createElement("div");
+      bar.className = "anim-ctl";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const live = document.createElement("span");
+      live.className = "live";
+      bar.append(btn, live);
+      let playing = !reduce;
+      const paint = () => {
+        btn.textContent = playing ? "⏸ Pause" : "▶ Play";
+        live.textContent = playing ? "animated" : (reduce ? "still (reduced motion)" : "paused");
+      };
+      btn.addEventListener("click", () => {
+        playing = !playing;
+        if (reduce) fig.classList.toggle("force", playing);
+        fig.classList.toggle("paused", !playing);
+        paint();
+      });
+      fig.querySelector(".dg-scroll")?.after(bar);
+      paint();
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(([e]) => fig.classList.toggle("idle", !e.isIntersecting)).observe(fig);
+      }
+    });
+
+    /* 3. Rendering picker */
+    const pickText = {
+      ssr: '→ <b>SSR</b>: <code>ssr: true</code> (the default). Cooked fresh for each visitor, and search engines get finished HTML.',
+      pre: '→ <b>Pre-rendering</b>: list the pages in <code>prerender</code>. Cooked once at build time, served instantly as files.',
+      spa: '→ <b>SPA mode</b>: <code>ssr: false</code>. Cheapest hosting; the browser does the cooking with <code>clientLoader</code>.',
+    };
+    document.querySelectorAll("[data-picker]").forEach((p) => {
+      const sec = p.closest("section");
+      const out = p.querySelector(".pk-out");
+      p.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => {
+        const v = b.dataset.pick;
+        p.querySelectorAll("[data-pick]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+        sec.querySelectorAll("[data-kind], [data-row]").forEach((el) => el.classList.toggle("picked", (el.dataset.kind || el.dataset.row) === v));
+        out.innerHTML = pickText[v] || "";
+      }));
+    });
+
+    /* 4. Glossary filter */
+    const gi = document.querySelector("[data-gloss]");
+    const gbox = document.getElementById("gloss");
+    gi?.addEventListener("input", () => {
+      const q = gi.value.trim().toLowerCase();
+      gbox.querySelectorAll("details.qa").forEach((d) => { d.hidden = !!q && !d.textContent.toLowerCase().includes(q); });
+      gbox.querySelectorAll(".gloss-group").forEach((g) => { g.hidden = ![...g.querySelectorAll("details.qa")].some((d) => !d.hidden); });
+    });
+  })();
+  </script>
+</body>
+</html>

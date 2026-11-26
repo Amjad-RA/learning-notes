@@ -1,0 +1,1820 @@
+<!doctype html>
+<!-- Micro Frontend Architecture notes (notes.css + notes.js in this folder, same layout as react-router-framework-mode.html).
+     Source: reports/Micro frontend architecture.md (only facts from that report; ratings there are judgements, and the
+     unverified adoption-drop claim is not quoted).
+     One <section class="domain"> per topic; sections 1-13 have data-mod, so notes.js adds Done ticks
+     (localStorage mfe:done) and a Practise with Gemini card.
+     Page-only parts (style + script at the end of this file):
+     - figure.dg.loop: looping CSS animations. Each element's plain style is its final state, so reduced motion and print
+       show the finished picture. A Pause / Play button is added; they also pause off screen.
+       Shared helpers: .mv (a dot that moves by --dx/--dy, delay --dl, length --T) and .hl.cyc (a glow that takes turns:
+       --i of --n, cycle --T).
+     - [data-stepper]: step-through diagrams. SVG parts use data-from="k" (shown from step k), data-until="k" (hidden from
+       step k), data-on="k k" (glow on those steps, .hlr rects) and data-at="k" (.pkt packet that moves at step k, by
+       --dx/--dy). The ol.sx-steps cards are the steps; Play, Back, Next and Reset buttons are added by the script.
+     - [data-vcheck]: Vercel "should we?" checklist. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f1f8f2">
+<title>Micro Frontend Architecture</title>
+<meta name="description" content="Animated, plain-English notes on micro frontend architecture: when to split, how to compose, Module Federation, routing, deployment, case studies and the interview answer.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>">
+<script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="stylesheet" href="notes.css">
+<style>
+  /* ---------- Page-only styles (theme variables only, so dark mode works) ---------- */
+  .k { font: 600 .86em var(--mono); color: var(--exam); background: color-mix(in srgb, var(--exam) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--exam) 30%, var(--border)); padding: .02em .4em; border-radius: 5px; overflow-wrap: anywhere; }
+  details.dev { margin: 0 0 18px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+  details.dev > summary { cursor: pointer; padding: 10px 14px; min-height: 44px; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); list-style: none; }
+  details.dev > summary::-webkit-details-marker { display: none; }
+  details.dev > summary::before { content: "</>"; font: 700 11px var(--mono); color: var(--exam); background: color-mix(in srgb, var(--exam) 14%, transparent); padding: 2px 6px; border-radius: 4px; }
+  details.dev[open] > summary { border-bottom: 1px dashed var(--border); }
+  details.dev .dev-body { padding: 10px 14px 4px; font-size: 14.5px; }
+  details.dev pre { margin: 0 0 10px; }
+  .km { display: flex; flex-direction: column; gap: 4px; }
+  .km .ico { font-size: 1.6em; line-height: 1; }
+  .km b { font-size: 15px; }
+  .km .to { font-size: 13px; color: var(--muted); }
+  .tile-n { font: 800 1.45rem/1.2 var(--mono); color: var(--exam); display: block; }
+  .tile-l { font-size: 13.5px; color: var(--muted); }
+  .tile-n.bad { color: var(--trap); } .tile-n.ok { color: var(--tip); }
+  .hero-link { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 600;
+               background: color-mix(in srgb, var(--info) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--info) 35%, var(--border)); color: var(--text); }
+  .hero-link a { color: var(--info); }
+  .quote { border-left: 4px solid var(--exam); background: var(--surface); border-radius: var(--radius-sm); padding: 10px 14px; margin: 0 0 18px; font-size: 15.5px; }
+  .quote cite { display: block; font-size: 13px; color: var(--muted); font-style: normal; margin-top: 4px; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .st { font: 700 11px var(--mono); padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+  .st.ok { background: var(--tip-soft); color: var(--tip); } .st.bad { background: var(--trap-soft); color: var(--trap); }
+  .st.warn { background: var(--key-soft); color: var(--key); } .st.inf { background: var(--info-soft); color: var(--info); }
+  /* SVG parts */
+  .dg text.m.sm, .dg text.sm { font-size: 11px; }
+  .dg text.dim { fill: var(--muted); }
+  .dg .bx.inf rect { fill: var(--info-soft); stroke: var(--info); } .dg .bx.inf text.b { fill: var(--info); }
+  .dg .bx.tA rect { fill: color-mix(in srgb, var(--info) 15%, var(--surface)); stroke: var(--info); } .dg .bx.tA text.b { fill: var(--info); }
+  .dg .bx.tB rect { fill: color-mix(in srgb, var(--key) 15%, var(--surface)); stroke: var(--key); } .dg .bx.tB text.b { fill: var(--key); }
+  .dg .bx.tC rect { fill: color-mix(in srgb, var(--tip) 15%, var(--surface)); stroke: var(--tip); } .dg .bx.tC text.b { fill: var(--tip); }
+  .dg .tmA { fill: var(--info); } .dg .tmB { fill: var(--key); } .dg .tmC { fill: var(--tip); }
+  .dg .addr { fill: var(--surface); stroke: var(--border); stroke-width: 1.3; }
+  .dg .frm { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .dg .soft { fill: var(--surface-2); }
+  .dg .btnr { fill: var(--exam); }
+  .dg text.on-btn { fill: var(--on-accent); font-weight: 650; font-size: 11.5px; }
+  .dg .line5 { stroke: var(--border); stroke-width: 5; stroke-linecap: round; }
+  .dg .track { fill: var(--surface-2); stroke: var(--border); }
+  .dg .fill { fill: var(--exam); }
+  .dg .rail { stroke: var(--muted); stroke-width: 3; stroke-linecap: round; fill: none; }
+  .dg .climber { fill: var(--exam); stroke: var(--surface); stroke-width: 2.5; }
+  .dg .wall { stroke: var(--muted); stroke-width: 3; stroke-dasharray: 6 4; fill: none; }
+  .dg .bar { fill: color-mix(in srgb, var(--exam) 60%, var(--surface)); transform-box: fill-box; transform-origin: left center; }
+  .dg .bar.k2 { fill: color-mix(in srgb, var(--key) 65%, var(--surface)); }
+  .dg .core { fill: color-mix(in srgb, var(--info) 30%, var(--surface)); stroke: var(--info); stroke-width: 2; }
+  .dg .roof { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.3; }
+  .dg .shut { fill: color-mix(in srgb, var(--muted) 75%, var(--surface)); transform-box: fill-box; transform-origin: center top; transform: scaleY(0); }
+  .dg .shut-t { fill: var(--surface); font-weight: 700; opacity: 0; }
+  .dg .shopper { fill: var(--info); stroke: var(--surface); stroke-width: 2; }
+  .dg .gdot { fill: var(--trap); stroke: var(--surface); stroke-width: 2; }
+  .dg .tdot { fill: var(--tip); stroke: var(--surface); stroke-width: 2; }
+  /* step-through machinery (same as the React Router page) */
+  .dg [data-from], .dg [data-until] { transition: opacity .45s ease calc(var(--d, 0) * 90ms); }
+  .dg .off { opacity: 0; }
+  .dg .hlr { fill: none; stroke: var(--exam); stroke-width: 2.5; opacity: 0; transition: opacity .3s; }
+  .dg .hlr.lit { opacity: 1; animation: mf-pulse 1.4s ease-in-out infinite; }
+  @keyframes mf-pulse { 50% { stroke-opacity: .3; } }
+  .dg .pkt { opacity: 0; }
+  .dg .pkt circle { fill: var(--exam); stroke: var(--surface); stroke-width: 2; }
+  .dg .pkt.go { animation: mf-pkt 1.3s ease-in-out forwards; }
+  @keyframes mf-pkt { 0% { opacity: 0; transform: translate(0, 0); } 12% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); } }
+  /* looping helpers */
+  .dg .mv { opacity: 0; }
+  .dg .mv circle { fill: var(--exam); stroke: var(--surface); stroke-width: 2; }
+  .loop .mv { animation: mf-mv var(--T, 3.2s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
+  @keyframes mf-mv { 0% { opacity: 0; transform: translate(0, 0); } 10% { opacity: 1; } 70% { opacity: 1; transform: translate(var(--dx, 0px), var(--dy, 0px)); } 80%, 100% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); } }
+  .dg .hl { fill: none; stroke: var(--exam); stroke-width: 2.5; opacity: 0; }
+  .loop .cyc { animation: mf-cyc var(--T, 8s) infinite; animation-delay: calc(var(--i, 0) * var(--T, 8s) / var(--n, 4) - var(--T, 8s)); }
+  @keyframes mf-cyc { 0%, 22% { opacity: 1; } 26%, 100% { opacity: 0; } }
+  .loop .cyc3 { animation-name: mf-cyc3; }
+  @keyframes mf-cyc3 { 0%, 30% { opacity: 1; } 34%, 100% { opacity: 0; } }
+  /* mall */
+  .loop .shut { animation: mf-shut 9s ease-in-out infinite; }
+  @keyframes mf-shut { 0%, 30% { transform: scaleY(0); } 38%, 70% { transform: scaleY(1); } 78%, 100% { transform: scaleY(0); } }
+  .loop .shut-t { animation: mf-shutt 9s ease-in-out infinite; }
+  @keyframes mf-shutt { 0%, 36% { opacity: 0; } 40%, 68% { opacity: 1; } 72%, 100% { opacity: 0; } }
+  .loop .shopper { animation: mf-walk 9s linear infinite; }
+  @keyframes mf-walk { 0% { transform: translate(0, 0); } 50% { transform: translate(350px, 0); } 100% { transform: translate(0, 0); } }
+  /* ladder */
+  .loop .climb { animation: mf-climb 10s ease-in-out infinite; }
+  @keyframes mf-climb { 0%, 20% { transform: translate(0, 0); } 25%, 45% { transform: translate(0, -50px); } 50%, 70% { transform: translate(0, -100px); } 75%, 95% { transform: translate(0, -150px); } 100% { transform: translate(0, 0); } }
+  /* astro island card */
+  .loop .is-out { animation: mf-isout 4s ease-in-out infinite; }
+  @keyframes mf-isout { 0% { opacity: 0; transform: translate(0, 0); } 5% { opacity: 1; } 30% { opacity: 1; transform: translate(40px, -11px); } 34%, 100% { opacity: 0; transform: translate(40px, -11px); } }
+  .loop .is-back { animation: mf-isback 4s ease-in-out infinite; }
+  @keyframes mf-isback { 0%, 36% { opacity: 0; transform: translate(0, 0); } 40% { opacity: 1; } 62% { opacity: 1; transform: translate(-44px, 11px); } 66%, 100% { opacity: 0; transform: translate(-44px, 11px); } }
+  .loop .is-fill { animation: mf-isfill 4s ease-in-out infinite; }
+  @keyframes mf-isfill { 0%, 62% { opacity: 0; } 66%, 94% { opacity: 1; } 100% { opacity: 0; } }
+  .loop .core { animation: mf-core 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes mf-core { 50% { transform: scale(1.15); } }
+  /* isolation ladder */
+  .loop .iso-mk { animation: mf-iso 9s ease-in-out infinite; }
+  @keyframes mf-iso { 0%, 12% { transform: translate(0, 0); } 16%, 28% { transform: translate(68px, 0); } 32%, 44% { transform: translate(136px, 0); } 48%, 60% { transform: translate(204px, 0); } 64%, 76% { transform: translate(272px, 0); } 80%, 96% { transform: translate(340px, 0); } 100% { transform: translate(0, 0); } }
+  .dg .iso-mk { transform: translate(340px, 0); }
+  /* tokens through the shadow wall */
+  .loop .g-bounce { animation: mf-bounce 7s ease-in-out infinite; }
+  @keyframes mf-bounce { 0% { opacity: 0; transform: translate(0, 0); } 6% { opacity: 1; } 32% { transform: translate(50px, 0); opacity: 1; } 50% { transform: translate(10px, 0); opacity: 1; } 56%, 100% { opacity: 0; transform: translate(10px, 0); } }
+  .loop .t-pass { animation: mf-pass 7s ease-in-out infinite; }
+  @keyframes mf-pass { 0% { opacity: 0; transform: translate(0, 0); } 6% { opacity: 1; } 58% { transform: translate(150px, -25px); opacity: 1; } 64%, 100% { opacity: 0; transform: translate(150px, -25px); } }
+  .loop .blk { animation: mf-blk 7s infinite; } @keyframes mf-blk { 0%, 30% { opacity: 0; } 34%, 60% { opacity: 1; } 64%, 100% { opacity: 0; } }
+  .loop .tok-btn { animation: mf-tok 7s infinite; } @keyframes mf-tok { 0%, 56% { fill: var(--muted); } 62%, 100% { fill: var(--exam); } }
+  .loop .psd { animation: mf-psd 7s infinite; } @keyframes mf-psd { 0%, 58% { opacity: 0; } 62%, 100% { opacity: 1; } }
+  /* waterfall */
+  .loop .w1 { animation: mf-w1 9s infinite; } .loop .w2 { animation: mf-w2 9s infinite; } .loop .w3 { animation: mf-w3 9s infinite; }
+  .loop .w4 { animation: mf-w4 9s infinite; } .loop .w5 { animation: mf-w5 9s infinite; } .loop .w6 { animation: mf-w6 9s infinite; } .loop .w7 { animation: mf-w7 9s infinite; }
+  @keyframes mf-w1 { 0% { transform: scaleX(0); } 9%, 100% { transform: scaleX(1); } }
+  @keyframes mf-w2 { 0%, 9% { transform: scaleX(0); } 18%, 100% { transform: scaleX(1); } }
+  @keyframes mf-w3 { 0%, 18% { transform: scaleX(0); } 27%, 100% { transform: scaleX(1); } }
+  @keyframes mf-w4 { 0%, 27% { transform: scaleX(0); } 36%, 100% { transform: scaleX(1); } }
+  @keyframes mf-w5 { 0%, 36% { transform: scaleX(0); } 45%, 100% { transform: scaleX(1); } }
+  @keyframes mf-w6 { 0%, 45% { transform: scaleX(0); } 54%, 100% { transform: scaleX(1); } }
+  @keyframes mf-w7 { 0%, 54% { transform: scaleX(0); } 63%, 100% { transform: scaleX(1); } }
+  .loop .rdy-a { animation: mf-rdya 9s infinite; } @keyframes mf-rdya { 0%, 63% { opacity: 0; } 66%, 100% { opacity: 1; } }
+  .loop .rdy-b { animation: mf-rdyb 9s infinite; } @keyframes mf-rdyb { 0%, 18% { opacity: 0; } 21%, 100% { opacity: 1; } }
+  /* strangler fig */
+  .dg .sg-leg { transform-box: fill-box; transform-origin: right center; transform: scaleX(0); }
+  .dg .sg-legt { opacity: 0; }
+  .loop .sg-leg { animation: mf-leg 12s ease-in-out infinite; }
+  @keyframes mf-leg { 0%, 15% { transform: scaleX(1); } 20%, 35% { transform: scaleX(.75); } 40%, 55% { transform: scaleX(.5); } 60%, 75% { transform: scaleX(.25); } 80%, 96% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+  .loop .sg-legt { animation: mf-legt 12s infinite; } @keyframes mf-legt { 0%, 76% { opacity: 1; } 80%, 100% { opacity: 0; } }
+  .loop .sg1 { animation: mf-sg1 12s infinite; } @keyframes mf-sg1 { 0%, 16% { opacity: 0; } 20%, 97% { opacity: 1; } 100% { opacity: 0; } }
+  .loop .sg2 { animation: mf-sg2 12s infinite; } @keyframes mf-sg2 { 0%, 36% { opacity: 0; } 40%, 97% { opacity: 1; } 100% { opacity: 0; } }
+  .loop .sg3 { animation: mf-sg3 12s infinite; } @keyframes mf-sg3 { 0%, 56% { opacity: 0; } 60%, 97% { opacity: 1; } 100% { opacity: 0; } }
+  .loop .sg4 { animation: mf-sg4 12s infinite; } @keyframes mf-sg4 { 0%, 76% { opacity: 0; } 80%, 97% { opacity: 1; } 100% { opacity: 0; } }
+  /* composition mini cards */
+  .cmp { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+  .cmp-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 8px 10px 10px; }
+  .cmp-card svg { display: block; width: 100%; height: auto; background: var(--surface-2); border-radius: 6px; margin-bottom: 6px; }
+  .cmp-card h4 { margin: 2px 0 2px; font-size: 14.5px; }
+  .cmp-card p { margin: 0 0 4px; font-size: 13.5px; color: var(--muted); }
+  /* Vercel checklist */
+  .vcheck { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 0 0 18px; }
+  .vcheck .cols { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+  .vcheck h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  .vcheck .red h4 { color: var(--trap); } .vcheck .grn h4 { color: var(--tip); }
+  .vcheck label { display: flex; gap: 8px; align-items: center; min-height: 40px; padding: 4px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 14.5px; }
+  .vcheck label:hover { background: var(--surface-2); }
+  .vcheck input { width: 18px; height: 18px; accent-color: var(--exam); flex: none; }
+  .vcheck .out { margin: 10px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); font-weight: 600; background: var(--surface-2); }
+  .vcheck .out.go { background: var(--tip-soft); color: var(--tip); } .vcheck .out.stop { background: var(--trap-soft); color: var(--trap); }
+  /* step-throughs */
+  .sx { margin: 6px 0 24px; }
+  .sx > figure.dg { margin-bottom: 4px; }
+  .sx-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 10px; }
+  .sx-ctl button { min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 600 13.5px var(--font); cursor: pointer; }
+  .sx-ctl button:hover { border-color: var(--exam); }
+  .sx-ctl button.pri { background: var(--exam); border-color: var(--exam); color: var(--on-accent); }
+  .sx-ctl .sx-at { font: 600 12.5px var(--mono); color: var(--muted); margin-left: auto; }
+  ol.sx-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  ol.sx-steps li { position: relative; margin: 0; padding: 9px 12px 9px 48px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; font-size: 14.5px; line-height: 1.45; transition: background .2s, border-color .2s; }
+  ol.sx-steps li .n { position: absolute; left: 10px; top: 9px; min-width: 28px; height: 22px; padding: 0 5px; border-radius: 11px; display: grid; place-items: center; font: 700 11px var(--mono); background: var(--surface-2); color: var(--muted); }
+  ol.sx-steps li .an-line { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  ol.sx-steps li.now { border-color: var(--exam); background: color-mix(in srgb, var(--exam) 12%, var(--surface)); box-shadow: var(--shadow); }
+  ol.sx-steps li.now .n { background: var(--exam); color: var(--on-accent); }
+  ol.sx-steps li.past .n { background: var(--tip-soft); color: var(--tip); }
+  @media (min-width: 1100px) {
+    .sx { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+    .sx > figure.dg { position: sticky; top: 90px; }
+  }
+  @media (min-width: 720px) {
+    .flow.wrap3 .step { flex: 1 1 calc(33.33% - 22px); }
+    .flow.wrap4 .step { flex: 1 1 calc(25% - 22px); }
+  }
+  .src-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+  .src-grid ul { margin: 0; padding-left: 1.1em; font-size: 14.5px; }
+  /* loop controls */
+  .loop.paused *, .loop.idle * { animation-play-state: paused !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .loop:not(.force) *, .sx *, .sx-steps li { animation: none !important; transition: none !important; }
+    .dg .pkt { display: none; }
+  }
+  @media print {
+    .loop *, .sx * { animation: none !important; transition: none !important; }
+    .sx-ctl, .anim-ctl, .vcheck input { display: none !important; }
+    .dg .off { opacity: 1 !important; }
+    .dg [data-until] { display: none !important; }
+    .dg .hlr, .dg .pkt, .dg .mv, .dg .hl { display: none !important; }
+    ol.sx-steps li { break-inside: avoid; }
+    details.dev { display: none; }
+    .sx > figure.dg { position: static; }
+  }
+</style>
+</head>
+<body data-notes="mfe">
+  <header class="site-header">
+    <div class="inner">
+      <a class="brand" href="../index.html"><span class="logo">🧩</span> Micro frontend notes</a>
+      <nav class="nav">
+        <a href="../index.html">Learning</a>
+        <a href="frontend-system-design.html">FSD notes</a>
+        <a href="micro-frontends.html" aria-current="page">Micro frontends</a>
+        <a href="#mfe13-interview">Interview</a>
+        <a href="#mfe14-quiz">Quiz</a>
+        <a href="https://martinfowler.com/articles/micro-frontends.html" target="_blank" rel="noopener">Fowler ↗</a>
+      </nav>
+      <div class="tools">
+        <button class="icon-btn print" type="button" onclick="window.print()" aria-label="Print or save as PDF">🖨 PDF</button>
+        <button class="icon-btn" data-theme-toggle type="button"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="hero">
+      <span class="exam-code">MFE · late 2026</span>
+      <h1>Micro Frontend Architecture</h1>
+      <p class="hero-link">📚 Extra learning for Frontend System Design · goes with <a href="frontend-system-design.html#m12-high-level-design">M12 High Level Design</a></p>
+      <p class="lead">One product built from <b>separate frontend pieces</b>, each <b>owned and shipped by one team</b>. Each section starts <b>in plain words</b>, then goes to senior level. Press <b>Play</b> on the step-through diagrams. Code is optional, hidden under <b>For developers</b>.</p>
+      <div class="meta-row">
+        <span class="meta">Sections: <b>14</b></span>
+        <span class="meta">Step-throughs: <b>8</b></span>
+        <span class="meta">Looping animations: <b>7</b></span>
+        <span class="meta">Runtime leader: <b>Module Federation 2</b></span>
+        <span class="meta">Tool data: <b>25 Nov 2026</b></span>
+        <span class="meta">Done: <b data-done-count>0 of 13</b></span>
+      </div>
+      <p class="source-note">Built only from the research report <code>reports/Micro frontend architecture.md</code>. Ratings in the tables are judgements from the sources, not benchmarks. All sources are listed at the end.</p>
+    </div>
+
+    <div class="with-toc">
+      <aside class="toc">
+        <div class="toc-title">Sections</div>
+        <nav data-toc></nav>
+        <div class="progress" data-progress-self><i></i></div>
+        <div class="progress-label"></div>
+      </aside>
+
+      <div>
+        <input class="search" type="search" placeholder="Filter sections, e.g. Module Federation, ESI, routing, canary…" data-search aria-label="Filter sections">
+
+        <!-- ================================================================ 1 -->
+        <section class="domain" id="mfe1-plain-words" data-mod="1" data-short="In plain words">
+          <div class="domain-head"><span class="domain-num">1</span><h2>In plain words</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Think of a <b>shopping mall</b>. Each shop has its own owner, staff and opening plan. The mall owns the corridors, signs and security desk. A shop can refit while the others stay open. Micro frontends build a website the same way.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Micro frontend (MFE)</dt><dd>One piece of the UI, built and deployed by one team.</dd>
+              <dt>Shell (host, container)</dt><dd>The thin outer app: header, login, routing. It loads the pieces.</dd>
+              <dt>Remote</dt><dd>A micro frontend that the shell loads at run time.</dd>
+              <dt>Composition</dt><dd>How the pieces are put together into one page: at build time, on the server, at the edge or in the browser.</dd>
+              <dt>Vertical split</dt><dd>One team per page or route (/search, /checkout).</dd>
+              <dt>Horizontal split</dt><dd>Several teams' widgets on the same page.</dd>
+              <dt>Modular monolith</dt><dd>One app with strict module boundaries, deployed together.</dd>
+              <dt>BFF</dt><dd>Backend for frontend: a small server that holds tokens and shapes data for the UI.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>1.1</span> The mall</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 222" role="img" aria-label="A mall with three shops. The middle shop pulls down its shutter to refit while the other two stay open, and a shopper keeps walking the corridor" xmlns="http://www.w3.org/2000/svg">
+                <path class="roof" d="M8,52 L200,8 L392,52 Z"/>
+                <text x="200" y="42" class="b" text-anchor="middle">The mall = the shell</text>
+                <g class="bx tA"><rect x="20" y="60" width="110" height="98" rx="6"/><text x="75" y="80" class="b" text-anchor="middle">Search</text><text x="75" y="96" class="s" text-anchor="middle">Team 1</text></g>
+                <g class="bx tB"><rect x="145" y="60" width="110" height="98" rx="6"/><text x="200" y="80" class="b" text-anchor="middle">Product</text><text x="200" y="96" class="s" text-anchor="middle">Team 2</text></g>
+                <g class="bx tC"><rect x="270" y="60" width="110" height="98" rx="6"/><text x="325" y="80" class="b" text-anchor="middle">Checkout</text><text x="325" y="96" class="s" text-anchor="middle">Team 3</text></g>
+                <rect class="soft" x="60" y="118" width="30" height="40" rx="3"/><rect class="soft" x="185" y="118" width="30" height="40" rx="3"/><rect class="soft" x="310" y="118" width="30" height="40" rx="3"/>
+                <rect class="shut" x="145" y="60" width="110" height="98" rx="6"/>
+                <text x="200" y="104" class="shut-t" text-anchor="middle">Refitting…</text>
+                <rect class="soft" x="8" y="166" width="384" height="38" rx="6"/>
+                <circle class="shopper" cx="25" cy="185" r="7"/>
+                <text x="200" y="218" class="s" text-anchor="middle">Corridor, signs, security desk = the shell (header, routing, login)</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the Product shop pulls its shutter down to refit (a deploy). Search and Checkout stay open, and the shopper keeps walking.</figcaption>
+          </figure>
+          <div class="grid">
+            <div class="card km"><span class="ico">🏬</span><b>The mall building</b><span class="to">= the shell</span></div>
+            <div class="card km"><span class="ico">🏪</span><b>One shop</b><span class="to">= one micro frontend</span></div>
+            <div class="card km"><span class="ico">🧑‍🤝‍🧑</span><b>The shop's own staff</b><span class="to">= one team, end to end</span></div>
+            <div class="card km"><span class="ico">🔧</span><b>Refitting one shop</b><span class="to">= an independent deploy</span></div>
+            <div class="card km"><span class="ico">🪧</span><b>The mall's sign rules</b><span class="to">= the shared design system</span></div>
+            <div class="card km"><span class="ico">🚶</span><b>Walking between shops</b><span class="to">= navigating by URL</span></div>
+          </div>
+
+          <h3 class="sub"><span>1.2</span> The definition</h3>
+          <div class="quote">"independently deliverable frontend applications are composed into a greater whole"<cite>Cam Jackson, martinfowler.com (2019), still the reference</cite></div>
+          <div class="grid">
+            <div class="card"><span class="tile-n">1 team</span><span class="tile-l">owns one business slice, from database to UI</span></div>
+            <div class="card"><span class="tile-n">Ship alone</span><span class="tile-l">each part deploys on its own: the hard requirement</span></div>
+            <div class="card"><span class="tile-n">Share little</span><span class="tile-l">one framework baseline, a design system, singletons</span></div>
+          </div>
+          <div class="callout key"><div><strong class="label">The one idea</strong>Micro frontends solve an <b>organisational</b> scaling problem, not a technical one.</div></div>
+
+          <h3 class="sub"><span>1.3</span> A good learning order</h3>
+          <div class="flow">
+            <div class="step"><b>Why and when</b><span>Sections 2 and 3</span></div>
+            <div class="step"><b>How to split</b><span>Section 4</span></div>
+            <div class="step"><b>How to compose</b><span>Sections 5 and 6</span></div>
+            <div class="step"><b>The seams</b><span>Sections 7 to 10</span></div>
+            <div class="step"><b>Real stories</b><span>Sections 11 to 13</span></div>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>One team owns one slice, end to end</li>
+            <li>Each slice ships on its own</li>
+            <li>The shell is thin: header, login, routing</li>
+            <li>It is an org-chart decision, not a code-size fix</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 2 -->
+        <section class="domain" id="mfe2-why" data-mod="2" data-short="Why it exists">
+          <div class="domain-head"><span class="domain-num">2</span><h2>Why it exists: teams and Conway's Law</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Teams split the backend into services, but left <b>one shared UI</b> on top. Every release still waited for everyone. Micro frontends carry the split all the way up to the screen.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Front-end monolith</dt><dd>One shared UI on top of many backend services.</dd>
+              <dt>Conway's Law</dt><dd>Systems end up shaped like the teams that build them.</dd>
+              <dt>Inverse Conway manoeuvre</dt><dd>Draw the boundaries where you <i>want</i> the team boundaries.</dd>
+              <dt>Bounded context</dt><dd>One business area with its own words and rules (search, checkout).</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>2.1</span> From one UI to one slice per team</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 310" role="img" aria-label="Three teams share one frontend and one release train; then each team gets a vertical slice from database to UI that ships alone, supported by enablement and platform teams" xmlns="http://www.w3.org/2000/svg">
+                  <circle class="tmA" cx="68" cy="24" r="13"/><circle class="tmB" cx="200" cy="24" r="13"/><circle class="tmC" cx="332" cy="24" r="13"/>
+                  <text x="68" y="52" class="s" text-anchor="middle">Team Search</text><text x="200" y="52" class="s" text-anchor="middle">Team Product</text><text x="332" y="52" class="s" text-anchor="middle">Team Checkout</text>
+                  <g data-until="4"><path class="ln" d="M68,56 L160,74 M200,56 V74 M332,56 L240,74"/>
+                    <g class="bx warn"><rect x="20" y="74" width="360" height="52" rx="8"/><text x="200" y="98" class="b" text-anchor="middle">One shared frontend</text><text x="200" y="115" class="s" text-anchor="middle">one codebase · one build · one deploy</text></g></g>
+                  <g data-from="4"><path class="ln a" d="M68,56 V74 M200,56 V74 M332,56 V74"/>
+                    <g class="bx tA"><rect x="20" y="74" width="96" height="52" rx="8"/><text x="68" y="104" class="b" text-anchor="middle">Search UI</text></g>
+                    <g class="bx tB"><rect x="152" y="74" width="96" height="52" rx="8"/><text x="200" y="104" class="b" text-anchor="middle">Product UI</text></g>
+                    <g class="bx tC"><rect x="284" y="74" width="96" height="52" rx="8"/><text x="332" y="104" class="b" text-anchor="middle">Checkout UI</text></g>
+                    <g class="bx frame"><rect x="14" y="68" width="108" height="124" rx="10"/><rect x="146" y="68" width="108" height="124" rx="10"/><rect x="278" y="68" width="108" height="124" rx="10"/></g>
+                    <text x="200" y="208" class="s" text-anchor="middle">Each team owns its slice, database to UI</text></g>
+                  <g data-from="3">
+                    <g class="bx"><rect x="20" y="148" width="96" height="36" rx="6"/><text x="68" y="170" class="m sm" text-anchor="middle">search svc</text></g>
+                    <g class="bx"><rect x="152" y="148" width="96" height="36" rx="6"/><text x="200" y="170" class="m sm" text-anchor="middle">product svc</text></g>
+                    <g class="bx"><rect x="284" y="148" width="96" height="36" rx="6"/><text x="332" y="170" class="m sm" text-anchor="middle">checkout svc</text></g></g>
+                  <text x="200" y="208" class="s" text-anchor="middle" data-from="3" data-until="4">Backend already split, UI still one block</text>
+                  <g data-from="2" data-until="4"><g class="bx bad"><rect x="20" y="220" width="360" height="30" rx="8"/><text x="200" y="240" class="b" text-anchor="middle">One release train: everyone waits</text></g></g>
+                  <g data-from="5">
+                    <g class="bx ok"><rect x="20" y="220" width="96" height="30" rx="15"/><text x="68" y="240" class="b" text-anchor="middle">ships alone</text></g>
+                    <g class="bx ok"><rect x="152" y="220" width="96" height="30" rx="15"/><text x="200" y="240" class="b" text-anchor="middle">ships alone</text></g>
+                    <g class="bx ok"><rect x="284" y="220" width="96" height="30" rx="15"/><text x="332" y="240" class="b" text-anchor="middle">ships alone</text></g></g>
+                  <g data-from="6">
+                    <g class="bx inf"><rect x="20" y="262" width="176" height="42" rx="8"/><text x="108" y="279" class="b" text-anchor="middle">Enablement team</text><text x="108" y="296" class="s" text-anchor="middle">UI kit · standards · budgets</text></g>
+                    <g class="bx inf"><rect x="204" y="262" width="176" height="42" rx="8"/><text x="292" y="279" class="b" text-anchor="middle">Platform team</text><text x="292" y="296" class="s" text-anchor="middle">CI/CD · runtime · monitoring</text></g></g>
+                  <rect class="hlr" data-on="1" x="14" y="4" width="372" height="128" rx="10"/>
+                  <rect class="hlr" data-on="2 5" x="16" y="216" width="368" height="38" rx="10"/>
+                  <rect class="hlr" data-on="3" x="16" y="144" width="368" height="44" rx="8"/>
+                  <rect class="hlr" data-on="4" x="10" y="64" width="380" height="132" rx="12"/>
+                  <rect class="hlr" data-on="6" x="16" y="258" width="368" height="50" rx="10"/>
+                </svg>
+              </div>
+              <figcaption>Team colours: <b style="color:var(--info)">Search</b>, <b style="color:var(--key)">Product</b>, <b style="color:var(--tip)">Checkout</b>. Dashed frames = one team's slice.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span><b>Three teams, one frontend.</b> Everyone edits one codebase.</li>
+                <li><span class="n">2</span><b>One release train.</b> A change from one team waits for all the others.</li>
+                <li><span class="n">3</span><b>The "front-end monolith".</b> The backend is already split into services, but one UI sits on top. That cancels most of the benefit.</li>
+                <li><span class="n">4</span><b>Inverse Conway.</b> Draw UI boundaries where you want team boundaries. Each team owns a vertical slice, database to UI.</li>
+                <li><span class="n">5</span><b>Each slice ships alone.</b> Independent deployment is the hard requirement.</li>
+                <li><span class="n">6</span><b>Many teams?</b> AWS adds an enablement team (UI library, standards, performance budgets) and a platform team (CI/CD, runtime, monitoring).</li>
+              </ol>
+            </div>
+          </div>
+          <div class="quote">"Architecture can significantly shape organizational structure"<cite>Luca Mezzalira, QCon SF, November 2025 (InfoQ)</cite></div>
+          <div class="callout info"><div><strong class="label">Honest note</strong>None of the sources names Conway's Law. Linking it here is an interpretation, but a standard one.</div></div>
+
+          <h3 class="sub"><span>2.2</span> Five principles: from "share nothing" to "share little, on purpose"</h3>
+          <div class="table-wrap"><table class="compare">
+            <thead><tr><th>Principle</th><th>Classic meaning</th><th>2025–2026 reality</th></tr></thead>
+            <tbody>
+              <tr><th>👤 Own</th><td>One team owns a vertical slice end to end</td><td><span class="yes">Unchanged</span></td></tr>
+              <tr><th>🚀 Ship</th><td>Each part deploys on its own</td><td><span class="yes">Unchanged:</span> the hard requirement</td></tr>
+              <tr><th>🧰 Choose</th><td>Each team picks its own stack</td><td>"May choose, but standardise." Mixing frameworks is a migration tool, not a goal</td></tr>
+              <tr><th>🧱 Isolate</th><td>No shared runtime, state or globals; prefix CSS, events, storage keys</td><td>Share a design system, logging and CI templates on purpose</td></tr>
+              <tr><th>🗺️ Split by domain</th><td>Bounded contexts, not widgets</td><td>Find boundaries with domain storytelling</td></tr>
+            </tbody>
+          </table></div>
+          <div class="grid">
+            <div class="card accent"><h3><span class="ico">🦅</span> Optimised for independence</h3><p>Mezzalira: micro frontends optimise for independence; reusable components optimise for consistency. Some duplication is fine.</p></div>
+            <div class="card accent"><h3><span class="ico">🐚</span> Keep the shell dumb</h3><p>The app shell stays "stable and agnostic", with almost no business logic.</p></div>
+            <div class="card accent"><h3><span class="ico">🌐</span> Use the browser</h3><p>Geers: prefer native browser features (DOM events) over custom APIs.</p></div>
+          </div>
+
+          <h3 class="sub"><span>2.3</span> Hype, then "only when the organisation needs it"</h3>
+          <div class="grid">
+            <div class="card"><span class="tile-n">Nov 2016</span><span class="tile-l">Thoughtworks Radar: Assess</span></div>
+            <div class="card"><span class="tile-n">2019–2020</span><span class="tile-l">Radar: Adopt (Apr 2019 – May 2020). Since left the current Radar</span></div>
+            <div class="card"><span class="tile-n">35.9%</span><span class="tile-l">single-spa led the tools in 2022 (State of Frontend, per its publisher)</span></div>
+            <div class="card"><span class="tile-n">51.8%</span><span class="tile-l">Module Federation led in 2024 (same survey)</span></div>
+            <div class="card"><span class="tile-n">Oct 2025</span><span class="tile-l">Mezzalira's <i>Building Micro-Frontends</i>, 2nd edition</span></div>
+            <div class="card"><span class="tile-n">4 Nov 2026</span><span class="tile-l">Vercel updated its microfrontends course</span></div>
+          </div>
+          <div class="callout trap"><div><strong class="label">Do not quote</strong>A widely repeated claim of a big drop in adoption contradicts the survey publisher's own figures and could not be verified. Leave it out of interviews and posts.</div></div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Problem: one UI on top of split services</li>
+            <li>Fix: one vertical slice per team</li>
+            <li>Classic "share nothing" became "share little, on purpose"</li>
+            <li>Big orgs add enablement + platform teams</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 3 -->
+        <section class="domain" id="mfe3-when" data-mod="3" data-short="When to use or avoid">
+          <div class="domain-head"><span class="domain-num">3</span><h2>When to use it, and when to avoid it</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Micro frontends cost money every day. Pay that cost only when <b>teams are really blocked</b> on each other's releases, or when you must move a legacy app across piece by piece.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Version skew</dt><dd>Different parts run different versions at the same moment.</dd>
+              <dt>Strangler fig</dt><dd>Replace an old app one route at a time, until nothing old is left.</dd>
+              <dt>Distributed monolith</dt><dd>Split into parts that still must deploy together. The worst of both.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>3.1</span> What you gain, what you pay</h3>
+          <div class="dodont">
+            <div class="do"><h4>You gain</h4><ul>
+              <li>Independent releases per team</li>
+              <li>Smaller codebases, lower cognitive load</li>
+              <li>Step-by-step (strangler-fig) migration with rollback</li>
+              <li>Vercel: <b>&gt;40% faster</b> preview builds and local compilation</li>
+              <li>DAZN: new teams contributed in <b>week one</b></li>
+            </ul></div>
+            <div class="dont"><h4>You pay</h4><ul>
+              <li>Non-atomic releases: versions skew</li>
+              <li>Duplicate deps: React + react-dom were <b>~50%</b> of the bundle in Jackson's example</li>
+              <li>More repos, pipelines, servers, governance</li>
+              <li>Harder end-to-end tests and debugging</li>
+              <li>Runtime failures one app never has</li>
+            </ul></div>
+          </div>
+          <div class="callout info"><div><strong class="label">Evidence check</strong>No controlled study measures productivity or performance before and after. The evidence is vendor reports and practitioner stories.</div></div>
+
+          <h3 class="sub"><span>3.2</span> The decision ladder</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 226" role="img" aria-label="A ladder with four rungs: plain SPA, modular monolith, vertical micro frontends, horizontal split. A dot climbs one rung at a time" xmlns="http://www.w3.org/2000/svg">
+                <path class="rail" d="M30,20 V214 M90,20 V214 M30,195 H90 M30,145 H90 M30,95 H90 M30,45 H90"/>
+                <g class="bx ok"><rect x="110" y="176" width="282" height="38" rx="7"/><text x="122" y="192" class="b">1 · Plain SPA</text><text x="122" y="207" class="s">One team owns the whole UI</text></g>
+                <g class="bx a"><rect x="110" y="126" width="282" height="38" rx="7"/><text x="122" y="142" class="b">2 · Modular monolith in a monorepo</text><text x="122" y="157" class="s">Teams deploy together, or the pain is build time</text></g>
+                <g class="bx warn"><rect x="110" y="76" width="282" height="38" rx="7"/><text x="122" y="92" class="b">3 · Vertical micro frontends</text><text x="122" y="107" class="s">Teams blocked on releases; legacy migration</text></g>
+                <g class="bx bad"><rect x="110" y="26" width="282" height="38" rx="7"/><text x="122" y="42" class="b">4 · Add a horizontal split later</text><text x="122" y="57" class="s">Only where widgets must share one page</text></g>
+                <rect class="hl cyc" style="--i:0;--n:4;--T:10s" x="106" y="172" width="290" height="46" rx="9"/>
+                <rect class="hl cyc" style="--i:1;--n:4;--T:10s" x="106" y="122" width="290" height="46" rx="9"/>
+                <rect class="hl cyc" style="--i:2;--n:4;--T:10s" x="106" y="72" width="290" height="46" rx="9"/>
+                <rect class="hl cyc" style="--i:3;--n:4;--T:10s" x="106" y="22" width="290" height="46" rx="9"/>
+                <g class="climb"><circle class="climber" cx="60" cy="183" r="9"/></g>
+              </svg>
+            </div>
+            <figcaption>Animated: climb one rung at a time, and only as far as your pain requires. Most teams should stop at rung 2.</figcaption>
+          </figure>
+          <div class="callout key"><div><strong class="label">Nx, in one line</strong>Federation "adds runtime failure modes without removing any release bottleneck" when teams already deploy together. Use micro frontends when independent deployment is a hard requirement.</div></div>
+
+          <h3 class="sub"><span>3.3</span> Vercel's thresholds</h3>
+          <div class="grid">
+            <div class="card"><span class="tile-n bad">&lt; 5</span><span class="tile-l">developers: do NOT use micro frontends</span></div>
+            <div class="card"><span class="tile-n bad">&lt; 3 min</span><span class="tile-l">build time: do NOT use them</span></div>
+            <div class="card"><span class="tile-n ok">&gt; 5 min</span><span class="tile-l">build time: one signal to consider them</span></div>
+            <div class="card"><span class="tile-n ok">3 or more</span><span class="tile-l">signals true: consider micro frontends</span></div>
+          </div>
+          <div class="vcheck" data-vcheck>
+            <div class="cols">
+              <div class="red"><h4>🚫 Red flags (any one = no)</h4>
+                <label><input type="checkbox" data-red> Fewer than 5 developers</label>
+                <label><input type="checkbox" data-red> Build time under 3 minutes</label>
+                <label><input type="checkbox" data-red> Users move between areas all the time</label>
+                <label><input type="checkbox" data-red> One domain, everyone works on everything</label>
+                <label><input type="checkbox" data-red> "We might scale someday"</label>
+              </div>
+              <div class="grn"><h4>✅ Signals (need 3 or more)</h4>
+                <label><input type="checkbox" data-sig> Build time over 5 minutes</label>
+                <label><input type="checkbox" data-sig> Teams blocked on each other</label>
+                <label><input type="checkbox" data-sig> Developers afraid to touch certain files</label>
+                <label><input type="checkbox" data-sig> Deploys only in set windows</label>
+                <label><input type="checkbox" data-sig> Slow local dev startup</label>
+              </div>
+            </div>
+            <p class="out" aria-live="polite">Tick what is true for your team.</p>
+          </div>
+          <div class="callout trap"><div><strong class="label">AWS adds</strong>Micro frontends are <b>not recommended</b> for a centralised organisation using waterfall.</div></div>
+
+          <div class="senior">
+            <h3 class="sub"><span>S</span> The failure to recognise: the distributed monolith</h3>
+            <p>Parts that are split but share state or must deploy together. They "can only live together" and combine the drawbacks of both designs (heise).</p>
+            <div class="chips"><span class="chip hot">Coordinated deploys</span><span class="chip hot">Shared global store</span><span class="chip hot">Several frameworks, no migration plan</span><span class="chip hot">Every team ships its own React</span><span class="chip hot">Business logic in the shell</span></div>
+            <p class="muted">Why the modular monolith is the default: clear module boundaries, tested separately, deployed together. No gateways, discovery or distributed logging, and modules can still be pulled out later.</p>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Default: modular monolith in a monorepo</li>
+            <li>Split only for a measured release bottleneck</li>
+            <li>Vertical first, horizontal later</li>
+            <li>Build-time pain alone? Use caching, not MFEs</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 4 -->
+        <section class="domain" id="mfe4-split" data-mod="4" data-short="How to split">
+          <div class="domain-head"><span class="domain-num">4</span><h2>How to split: vertical vs horizontal</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p><b>Vertical:</b> each team owns whole pages. <b>Horizontal:</b> several teams share one page, like stalls at a market table. Start vertical. It is much simpler.</p>
+          </div>
+
+          <h3 class="sub"><span>4.1</span> One page of fragments vs one team per route</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 270" role="img" aria-label="Left: one page built from fragments by three teams. Right: three routes, each a whole page from one team" xmlns="http://www.w3.org/2000/svg">
+                  <text x="99" y="14" class="b" text-anchor="middle">Horizontal split</text><text x="99" y="30" class="s" text-anchor="middle">one page, many teams</text>
+                  <text x="301" y="14" class="b" text-anchor="middle">Vertical split</text><text x="301" y="30" class="s" text-anchor="middle">one page, one team</text>
+                  <g class="bx"><rect x="6" y="40" width="186" height="204" rx="8"/></g>
+                  <rect class="addr" x="14" y="48" width="170" height="18" rx="9"/><text x="99" y="61" class="m sm" text-anchor="middle">/product/42</text>
+                  <g data-from="1"><g class="bx a"><rect x="14" y="74" width="170" height="24" rx="5"/><text x="99" y="90" class="b" text-anchor="middle">Shell: header</text></g></g>
+                  <g data-from="2"><g class="bx tB"><rect x="14" y="104" width="110" height="132" rx="5"/><text x="69" y="164" class="b" text-anchor="middle">Product</text><text x="69" y="180" class="s" text-anchor="middle">Team Product</text></g></g>
+                  <g data-from="3"><g class="bx tA"><rect x="130" y="104" width="54" height="82" rx="5"/><text x="157" y="144" class="b" text-anchor="middle">Reco</text><text x="157" y="160" class="s" text-anchor="middle">Team 2</text></g>
+                    <g class="bx tC"><rect x="130" y="192" width="54" height="44" rx="5"/><text x="157" y="218" class="b" text-anchor="middle">Cart</text></g></g>
+                  <g class="bx"><rect x="208" y="40" width="186" height="204" rx="8"/></g>
+                  <rect class="addr" x="216" y="48" width="170" height="18" rx="9"/>
+                  <text x="301" y="61" class="m sm" text-anchor="middle" data-from="4" data-until="5">/search</text>
+                  <text x="301" y="61" class="m sm" text-anchor="middle" data-from="5" data-until="6">/product/42</text>
+                  <text x="301" y="61" class="m sm" text-anchor="middle" data-from="6">/checkout</text>
+                  <g data-from="4" data-until="5"><g class="bx tA"><rect x="216" y="74" width="170" height="162" rx="5"/><text x="301" y="150" class="b" text-anchor="middle">Search page</text><text x="301" y="167" class="s" text-anchor="middle">Team Search · whole page</text></g></g>
+                  <g data-from="5" data-until="6"><g class="bx tB"><rect x="216" y="74" width="170" height="162" rx="5"/><text x="301" y="150" class="b" text-anchor="middle">Product page</text><text x="301" y="167" class="s" text-anchor="middle">Team Product · whole page</text></g></g>
+                  <g data-from="6"><g class="bx tC"><rect x="216" y="74" width="170" height="162" rx="5"/><text x="301" y="150" class="b" text-anchor="middle">Checkout page</text><text x="301" y="167" class="s" text-anchor="middle">Team Checkout · whole page</text></g></g>
+                  <text x="99" y="262" class="s" text-anchor="middle" data-from="3">teams meet at run time</text>
+                  <text x="301" y="262" class="s" text-anchor="middle" data-from="5">a link = a page change</text>
+                  <rect class="hlr" data-on="1 2 3" x="3" y="37" width="192" height="210" rx="10"/>
+                  <rect class="hlr" data-on="4 5 6" x="205" y="37" width="192" height="210" rx="10"/>
+                </svg>
+              </div>
+              <figcaption>Left: one screen, three owners. Right: the URL decides which single team owns the whole screen.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span><b>Horizontal:</b> the shell draws the frame (header) of one page.</li>
+                <li><span class="n">2</span>Team Product's fragment fills the main area.</li>
+                <li><span class="n">3</span>Other teams add a recommendations widget and a mini-cart. Three teams, one screen: they must coordinate at run time.</li>
+                <li><span class="n">4</span><b>Vertical:</b> <code>/search</code> is a whole page from Team Search.</li>
+                <li><span class="n">5</span>Open a product: <code>/product/42</code> is a whole page from Team Product.</li>
+                <li><span class="n">6</span>Go to <code>/checkout</code>: Team Checkout. Each team ships its pages without touching the others.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="card accent"><h3><span class="ico">↕️</span> Vertical (by route)</h3><p>One team per page. Plain links can route. Start here.</p><div class="tag-row"><span class="st ok">simple</span><span class="st ok">SEO friendly</span></div></div>
+            <div class="card"><h3><span class="ico">↔️</span> Horizontal (by fragment)</h3><p>Several teams on one page. Adds "immediate complexity and should be deferred" (InfoQ).</p><div class="tag-row"><span class="st warn">defer</span><span class="st bad">harder testing</span></div></div>
+          </div>
+
+          <h3 class="sub"><span>4.2</span> Mezzalira's decision order</h3>
+          <div class="flow">
+            <div class="step"><b>Define</b><span>Vertical or horizontal</span></div>
+            <div class="step"><b>Compose</b><span>Client, server or edge</span></div>
+            <div class="step"><b>Route</b><span>Who owns which URL</span></div>
+            <div class="step"><b>Communicate</b><span>URL, props, events</span></div>
+          </div>
+          <div class="quote">"Micro frontends are the technical representation of a business subdomain"<cite>InfoQ, 2025</cite></div>
+          <div class="dodont">
+            <div class="do"><h4>Split by</h4><ul><li>Business subdomain (search, product, cart/checkout, account, content)</li><li>First-level URL for a migration</li><li>Boundaries found with domain storytelling</li></ul></div>
+            <div class="dont"><h4>Don't split by</h4><ul><li>Widgets: a button or header is not an MFE ("nano frontends")</li><li>Code size alone</li><li>Pages users jump between all the time</li></ul></div>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Vertical by route first</li>
+            <li>Horizontal only where widgets must share a page</li>
+            <li>One MFE = one business subdomain</li>
+            <li>Order: define → compose → route → communicate</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 5 -->
+        <section class="domain" id="mfe5-composition" data-mod="5" data-short="Composition techniques">
+          <div class="domain-head"><span class="domain-num">5</span><h2>Composition techniques</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Composition is <b>where the pieces get glued together</b>: when you build, on the server, at the CDN edge, or in the browser. Each place trades isolation, speed and SEO differently.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>SSI / ESI</dt><dd>Server Side Includes / Edge Side Includes: the server or CDN pastes HTML fragments into a page.</dd>
+              <dt>Fragment</dt><dd>A piece of HTML owned by one team (Podium calls it a "podlet").</dd>
+              <dt>Edge</dt><dd>CDN servers close to the user.</dd>
+              <dt>Import map</dt><dd>A browser list that maps module names to URLs.</dd>
+            </dl>
+          </div>
+          <p>Jackson's original list: <span class="chips" style="display:inline-flex"><span class="chip">server-side templates</span><span class="chip">build-time packages</span><span class="chip">iframes</span><span class="chip">run-time JavaScript</span><span class="chip">Web Components</span></span></p>
+
+          <h3 class="sub"><span>5.1</span> Seven techniques, one card each</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <div class="cmp">
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="Three packages flow into one bundle" xmlns="http://www.w3.org/2000/svg">
+                    <g class="bx"><rect x="6" y="4" width="56" height="20" rx="4"/><text x="34" y="18" class="m sm" text-anchor="middle">pkg A</text></g>
+                    <g class="bx"><rect x="6" y="30" width="56" height="20" rx="4"/><text x="34" y="44" class="m sm" text-anchor="middle">pkg B</text></g>
+                    <g class="bx"><rect x="6" y="56" width="56" height="20" rx="4"/><text x="34" y="70" class="m sm" text-anchor="middle">pkg C</text></g>
+                    <g class="bx a"><rect x="132" y="20" width="62" height="40" rx="6"/><text x="163" y="44" class="b" text-anchor="middle">1 bundle</text></g>
+                    <g class="mv" style="--dx:62px;--dy:26px;--dl:0s"><circle cx="66" cy="14" r="5"/></g>
+                    <g class="mv" style="--dx:62px;--dy:0px;--dl:.4s"><circle cx="66" cy="40" r="5"/></g>
+                    <g class="mv" style="--dx:62px;--dy:-26px;--dl:.8s"><circle cx="66" cy="66" r="5"/></g>
+                  </svg>
+                  <h4>1 · Build-time npm packages</h4>
+                  <p>Container installs every part, one build, one deploy. Any change = re-release everything.</p>
+                  <div class="tag-row"><span class="st bad">not for composition</span><span class="st ok">fine for design system</span></div>
+                </div>
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="A request goes to a proxy that sends /dashboard to one app and /blog to another" xmlns="http://www.w3.org/2000/svg">
+                    <g class="bx"><rect x="4" y="28" width="40" height="24" rx="4"/><text x="24" y="44" class="s" text-anchor="middle">user</text></g>
+                    <g class="bx a"><rect x="76" y="26" width="50" height="28" rx="5"/><text x="101" y="44" class="b" text-anchor="middle">proxy</text></g>
+                    <g class="bx tA"><rect x="150" y="4" width="46" height="28" rx="5"/><text x="173" y="22" class="m sm" text-anchor="middle">/dash</text></g>
+                    <g class="bx tB"><rect x="150" y="48" width="46" height="28" rx="5"/><text x="173" y="66" class="m sm" text-anchor="middle">/blog</text></g>
+                    <path class="ln" d="M44,40 H76 M126,36 L150,18 M126,44 L150,62"/>
+                    <g class="mv" style="--dx:28px;--dy:0px;--dl:0s"><circle cx="48" cy="40" r="5"/></g>
+                    <g class="mv" style="--dx:20px;--dy:-20px;--dl:1s"><circle cx="128" cy="38" r="5"/></g>
+                    <g class="mv" style="--dx:20px;--dy:20px;--dl:2s"><circle cx="128" cy="42" r="5"/></g>
+                  </svg>
+                  <h4>2 · Route split (Next.js Multi-Zones)</h4>
+                  <p>Proxy matches the path. Each zone returns a full page. Cross-zone link = hard navigation.</p>
+                  <div class="tag-row"><span class="st ok">full SEO</span><span class="st ok">low complexity</span></div>
+                </div>
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="Fragments fly into slots of one page template" xmlns="http://www.w3.org/2000/svg">
+                    <g class="bx"><rect x="6" y="4" width="100" height="72" rx="6"/></g>
+                    <rect class="frm" x="14" y="12" width="84" height="16" rx="3"/><rect class="frm" x="14" y="32" width="84" height="18" rx="3"/><rect class="frm" x="14" y="54" width="84" height="16" rx="3"/>
+                    <g class="bx tA"><rect x="150" y="4" width="46" height="20" rx="4"/></g>
+                    <g class="bx tB"><rect x="150" y="30" width="46" height="20" rx="4"/></g>
+                    <g class="bx tC"><rect x="150" y="56" width="46" height="20" rx="4"/></g>
+                    <text x="173" y="18" class="s" text-anchor="middle">frag</text><text x="173" y="44" class="s" text-anchor="middle">frag</text><text x="173" y="70" class="s" text-anchor="middle">frag</text>
+                    <g class="mv" style="--dx:-56px;--dy:6px;--dl:0s"><circle cx="146" cy="14" r="5"/></g>
+                    <g class="mv" style="--dx:-56px;--dy:1px;--dl:.5s"><circle cx="146" cy="40" r="5"/></g>
+                    <g class="mv" style="--dx:-56px;--dy:-4px;--dl:1s"><circle cx="146" cy="66" r="5"/></g>
+                  </svg>
+                  <h4>3 · Server and edge includes</h4>
+                  <p>SSI, ESI (a 2001 W3C submission run by CDNs like Varnish, Akamai, Fastly), Podium.</p>
+                  <div class="tag-row"><span class="st ok">full SEO</span><span class="st ok">cache per fragment</span></div>
+                </div>
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="A cached page asks the server for one island, and the island HTML replaces the fallback" xmlns="http://www.w3.org/2000/svg">
+                    <g class="bx"><rect x="6" y="4" width="114" height="72" rx="6"/><text x="63" y="22" class="s" text-anchor="middle">cached page</text></g>
+                    <rect class="frm" x="16" y="36" width="94" height="30" rx="4"/><text x="63" y="55" class="s" text-anchor="middle">fallback</text>
+                    <g class="is-fill bx tB"><rect x="16" y="36" width="94" height="30" rx="4"/><text x="63" y="55" class="b" text-anchor="middle">island HTML</text></g>
+                    <g class="bx a"><rect x="150" y="26" width="46" height="28" rx="5"/><text x="173" y="44" class="s" text-anchor="middle">server</text></g>
+                    <g class="mv is-out"><circle cx="112" cy="51" r="5"/></g>
+                    <g class="mv is-back"><circle cx="150" cy="40" r="5"/></g>
+                  </svg>
+                  <h4>4 · Astro server islands</h4>
+                  <p>Script calls the island's route with encrypted props. Server HTML replaces the fallback.</p>
+                  <div class="tag-row"><span class="st ok">fast cached shell</span><span class="st inf">within one app</span></div>
+                </div>
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="An edge worker streams a fragment to the page first, then the slower legacy app" xmlns="http://www.w3.org/2000/svg">
+                    <g class="bx"><rect x="4" y="26" width="40" height="28" rx="4"/><text x="24" y="44" class="s" text-anchor="middle">page</text></g>
+                    <g class="bx a"><rect x="70" y="26" width="56" height="28" rx="5"/><text x="98" y="44" class="b" text-anchor="middle">worker</text></g>
+                    <g class="bx tB"><rect x="150" y="4" width="46" height="26" rx="4"/><text x="173" y="21" class="s" text-anchor="middle">frag</text></g>
+                    <g class="bx warn"><rect x="150" y="50" width="46" height="26" rx="4"/><text x="173" y="67" class="s" text-anchor="middle">legacy</text></g>
+                    <path class="ln" d="M44,40 H70 M126,36 L150,17 M126,44 L150,63"/>
+                    <g class="mv" style="--dx:-100px;--dy:23px;--T:2.4s;--dl:0s"><circle cx="148" cy="17" r="5"/></g>
+                    <g class="mv" style="--dx:-100px;--dy:-23px;--T:4.8s;--dl:.8s"><circle cx="148" cy="63" r="5"/></g>
+                  </svg>
+                  <h4>5 · Edge fragments (Web Fragments)</h4>
+                  <p>Gateway streams the fragment first, then "pierces" it into the legacy app.</p>
+                  <div class="tag-row"><span class="st warn">experimental (0.8.2)</span><span class="st ok">legacy migration</span></div>
+                </div>
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="Three apps take turns being active as the URL changes" xmlns="http://www.w3.org/2000/svg">
+                    <text x="100" y="15" class="s" text-anchor="middle">the URL picks the active app</text>
+                    <g class="bx tA"><rect x="8" y="26" width="56" height="40" rx="5"/><text x="36" y="50" class="b" text-anchor="middle">app 1</text></g>
+                    <g class="bx tB"><rect x="72" y="26" width="56" height="40" rx="5"/><text x="100" y="50" class="b" text-anchor="middle">app 2</text></g>
+                    <g class="bx tC"><rect x="136" y="26" width="56" height="40" rx="5"/><text x="164" y="50" class="b" text-anchor="middle">app 3</text></g>
+                    <rect class="hl cyc cyc3" style="--i:0;--n:3;--T:6s" x="4" y="22" width="64" height="48" rx="7"/>
+                    <rect class="hl cyc cyc3" style="--i:1;--n:3;--T:6s" x="68" y="22" width="64" height="48" rx="7"/>
+                    <rect class="hl cyc cyc3" style="--i:2;--n:3;--T:6s" x="132" y="22" width="64" height="48" rx="7"/>
+                  </svg>
+                  <h4>6 · single-spa (client orchestrator)</h4>
+                  <p>Mounts and unmounts whole apps by URL. Can mix frameworks during a migration.</p>
+                  <div class="tag-row"><span class="st inf">multi-framework</span><span class="st warn">weak SEO</span></div>
+                </div>
+                <div class="cmp-card">
+                  <svg viewBox="0 0 200 80" role="img" aria-label="Two remotes send code chunks to the host, which shares one React" xmlns="http://www.w3.org/2000/svg">
+                    <g class="bx a"><rect x="4" y="18" width="60" height="44" rx="6"/><text x="34" y="44" class="b" text-anchor="middle">host</text></g>
+                    <g class="bx tA"><rect x="140" y="4" width="56" height="30" rx="5"/><text x="168" y="23" class="s" text-anchor="middle">remote</text></g>
+                    <g class="bx tC"><rect x="140" y="46" width="56" height="30" rx="5"/><text x="168" y="65" class="s" text-anchor="middle">remote</text></g>
+                    <circle class="core" cx="100" cy="40" r="12"/><text x="100" y="72" class="s" text-anchor="middle">1 React</text>
+                    <g class="mv" style="--dx:-70px;--dy:14px;--dl:0s"><circle cx="136" cy="19" r="5"/></g>
+                    <g class="mv" style="--dx:-70px;--dy:-14px;--dl:1.5s"><circle cx="136" cy="61" r="5"/></g>
+                  </svg>
+                  <h4>7 · Module Federation 2</h4>
+                  <p>Host loads remote modules at run time and shares one copy of React.</p>
+                  <div class="tag-row"><span class="st ok">most used</span><span class="st warn">SSR complex</span></div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Animated: dots are HTML or code moving to where the page is assembled. Iframes and Web Components appear in the table below.</figcaption>
+          </figure>
+
+          <h3 class="sub"><span>5.2</span> Server composition, step by step (Podium / ESI)</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 262" role="img" aria-label="A layout server fetches three fragments in parallel, uses a cached fallback when one times out, sends an early hint and returns one HTML document" xmlns="http://www.w3.org/2000/svg">
+                  <g class="bx"><rect x="6" y="80" width="84" height="100" rx="8"/><text x="48" y="100" class="b" text-anchor="middle">Browser</text></g>
+                  <text x="48" y="140" class="s" text-anchor="middle" data-until="6">waiting…</text>
+                  <g data-from="6"><g class="bx tA"><rect x="14" y="110" width="68" height="14" rx="3"/></g><g class="bx tB"><rect x="14" y="128" width="68" height="26" rx="3"/></g><g class="bx tC"><rect x="14" y="158" width="68" height="14" rx="3"/></g></g>
+                  <g class="bx a"><rect x="130" y="60" width="120" height="140" rx="8"/><text x="190" y="80" class="b" text-anchor="middle">Layout server</text><text x="190" y="96" class="s" text-anchor="middle">or CDN with ESI</text></g>
+                  <g data-from="2"><text x="140" y="122" class="m sm">header → URL</text><text x="140" y="140" class="m sm">product → URL</text><text x="140" y="158" class="m sm">reco → URL</text></g>
+                  <text x="190" y="186" class="s" text-anchor="middle" data-from="6">one HTML doc</text>
+                  <g class="bx tA"><rect x="290" y="20" width="104" height="48" rx="7"/><text x="342" y="40" class="b" text-anchor="middle">Header</text><text x="342" y="56" class="s" text-anchor="middle">fragment</text></g>
+                  <g class="bx tB"><rect x="290" y="106" width="104" height="48" rx="7"/><text x="342" y="126" class="b" text-anchor="middle">Product</text><text x="342" y="142" class="s" text-anchor="middle">fragment</text></g>
+                  <g class="bx tC"><rect x="290" y="192" width="104" height="48" rx="7"/><text x="342" y="212" class="b" text-anchor="middle">Reco</text><text x="342" y="228" class="s" text-anchor="middle">fragment</text></g>
+                  <g data-from="4"><g class="bx bad"><rect x="290" y="192" width="104" height="48" rx="7"/><text x="342" y="212" class="b" text-anchor="middle">Reco</text><text x="342" y="228" class="s" text-anchor="middle">timeout ✗</text></g></g>
+                  <g class="bx dash"><rect x="130" y="214" width="120" height="36" rx="7"/><text x="190" y="236" class="s" text-anchor="middle">fallback cache</text></g>
+                  <path class="ln d" d="M250,100 L290,44 M250,130 H290 M250,160 L290,216 M90,130 H130"/>
+                  <text x="110" y="122" class="m sm" text-anchor="middle" data-from="5" data-until="6">103</text>
+                  <g class="pkt" data-at="1" style="--dx:34px;--dy:0px"><circle cx="94" cy="130" r="6"/></g>
+                  <g class="pkt" data-at="3" style="--dx:34px;--dy:-54px"><circle cx="254" cy="98" r="6"/></g>
+                  <g class="pkt" data-at="3" style="--dx:34px;--dy:0px"><circle cx="254" cy="130" r="6"/></g>
+                  <g class="pkt" data-at="3" style="--dx:34px;--dy:54px"><circle cx="254" cy="162" r="6"/></g>
+                  <g class="pkt" data-at="5" style="--dx:-34px;--dy:0px"><circle cx="126" cy="130" r="6"/></g>
+                  <g class="pkt" data-at="6" style="--dx:-34px;--dy:0px"><circle cx="126" cy="130" r="6"/></g>
+                  <rect class="hlr" data-on="1 5 6" x="3" y="77" width="90" height="106" rx="10"/>
+                  <rect class="hlr" data-on="2" x="127" y="57" width="126" height="146" rx="10"/>
+                  <rect class="hlr" data-on="3" x="287" y="17" width="110" height="226" rx="10"/>
+                  <rect class="hlr" data-on="4" x="127" y="211" width="126" height="42" rx="9"/>
+                </svg>
+              </div>
+              <figcaption>Podium also sends asset info early as an HTTP <b>103 Early Hint</b>. Zalando's Tailor, the classic streaming layout service, is archived.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The browser asks for a page. The layout server (or a CDN running ESI) gets the request.</li>
+                <li><span class="n">2</span>It has registered every fragment (Podium "podlets") by manifest URL.</li>
+                <li><span class="n">3</span>It fetches <b>every fragment in parallel</b>, with context headers.</li>
+                <li><span class="n">4</span>On an error or timeout, it uses a cached <b>fallback</b>.</li>
+                <li><span class="n">5</span>Podium sends the asset list early as an <b>HTTP 103 Early Hint</b>.</li>
+                <li><span class="n">6</span>It injects the fragment HTML plus the collected CSS and JS, and returns <b>one document</b>.</li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>5.3</span> Edge fragment piercing (Cloudflare)</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 224" role="img" aria-label="A gateway worker requests a legacy app and an SSR fragment in parallel, streams the fragment first, then pierces it into the legacy app" xmlns="http://www.w3.org/2000/svg">
+                  <g class="bx"><rect x="6" y="14" width="150" height="196" rx="8"/></g>
+                  <rect class="addr" x="14" y="22" width="134" height="18" rx="9"/><text x="81" y="35" class="m sm" text-anchor="middle">/login</text>
+                  <rect class="frm" x="14" y="48" width="134" height="154" rx="5"/>
+                  <text x="81" y="190" class="s" text-anchor="middle" data-from="3" data-until="4">legacy still loading…</text>
+                  <g data-from="3" data-until="4"><g class="bx tB"><rect x="24" y="58" width="114" height="54" rx="6"/><text x="81" y="80" class="b" text-anchor="middle">Login fragment</text><text x="81" y="98" class="s" text-anchor="middle">interactive now</text></g></g>
+                  <g data-from="4"><path class="line5" d="M26,62 H136 M26,76 H110"/>
+                    <g class="bx tB"><rect x="24" y="96" width="114" height="54" rx="6"/><text x="81" y="118" class="b" text-anchor="middle">Login fragment</text><text x="81" y="136" class="s" text-anchor="middle">pierced into outlet</text></g>
+                    <path class="line5" d="M26,170 H136 M26,184 H96"/></g>
+                  <g class="bx a"><rect x="176" y="74" width="90" height="66" rx="8"/><text x="221" y="98" class="b" text-anchor="middle">Gateway</text><text x="221" y="114" class="s" text-anchor="middle">Worker</text><text x="221" y="129" class="s" text-anchor="middle">(edge)</text></g>
+                  <g class="bx warn"><rect x="290" y="20" width="104" height="50" rx="7"/><text x="342" y="42" class="b" text-anchor="middle">Legacy app</text><text x="342" y="58" class="s" text-anchor="middle">slow render</text></g>
+                  <g class="bx tB"><rect x="290" y="90" width="104" height="50" rx="7"/><text x="342" y="112" class="b" text-anchor="middle">SSR fragment</text><text x="342" y="128" class="s" text-anchor="middle">fast</text></g>
+                  <path class="ln d" d="M156,107 H176 M266,100 L290,45 M266,114 H290"/>
+                  <g data-from="5"><g class="bx warn"><rect x="176" y="156" width="218" height="58" rx="8"/><text x="285" y="176" class="b" text-anchor="middle">Web Fragments (successor)</text><text x="285" y="192" class="s" text-anchor="middle">own JS context · shared DOM, history</text><text x="285" y="206" class="s" text-anchor="middle">pre-1.0 (0.8.2): experimental</text></g></g>
+                  <g class="pkt" data-at="1" style="--dx:24px;--dy:0px"><circle cx="150" cy="107" r="6"/></g>
+                  <g class="pkt" data-at="2" style="--dx:20px;--dy:-52px"><circle cx="270" cy="98" r="6"/></g>
+                  <g class="pkt" data-at="2" style="--dx:20px;--dy:0px"><circle cx="270" cy="114" r="6"/></g>
+                  <g class="pkt" data-at="3" style="--dx:-120px;--dy:-24px"><circle cx="286" cy="114" r="6"/></g>
+                  <rect class="hlr" data-on="1" x="173" y="71" width="96" height="72" rx="10"/>
+                  <rect class="hlr" data-on="2" x="287" y="17" width="110" height="126" rx="10"/>
+                  <rect class="hlr" data-on="3" x="21" y="55" width="120" height="60" rx="8"/>
+                  <rect class="hlr" data-on="4" x="3" y="11" width="156" height="202" rx="10"/>
+                  <rect class="hlr" data-on="5" x="173" y="153" width="224" height="64" rx="10"/>
+                </svg>
+              </div>
+              <figcaption>The user can type into the login form before the old app has even finished rendering.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>A gateway Worker at the edge receives <code>/login</code>.</li>
+                <li><span class="n">2</span>It makes <b>parallel sub-requests</b>: one to the legacy app, one to an SSR fragment.</li>
+                <li><span class="n">3</span>It streams the fragment <b>first</b>. The fragment is interactive immediately.</li>
+                <li><span class="n">4</span>When the legacy app renders, the fragment's DOM is <b>"pierced"</b> into its outlet without losing state.</li>
+                <li><span class="n">5</span>The successor, <b>Web Fragments</b>, runs each fragment's JS in its own context but shares the DOM, navigation and history. Pre-1.0: treat as experimental.</li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>5.4</span> Comparison table</h3>
+          <div class="table-wrap"><table class="compare">
+            <thead><tr><th>Technique</th><th>Isolation</th><th>Performance</th><th>SEO / SSR</th><th>Own deploy</th><th>Best for</th></tr></thead>
+            <tbody>
+              <tr><th>Build-time npm</th><td>None</td><td>Best (one bundle)</td><td>Yes</td><td><span class="no">No</span></td><td>Design system, libraries</td></tr>
+              <tr><th>Route split / proxy</th><td>Full (separate pages)</td><td>Good; full reload at boundary</td><td>Full</td><td><span class="yes">Yes</span></td><td>Large sites split by domain</td></tr>
+              <tr><th>SSI / ESI</th><td>Server only, no JS isolation</td><td>Cache per fragment; slowest can block</td><td>Full</td><td><span class="yes">Yes</span></td><td>Content pages, CDN caching</td></tr>
+              <tr><th>Podium layout</th><td>Per fragment</td><td>Parallel fetch, fallbacks, 103 hints</td><td>Full</td><td><span class="yes">Yes</span></td><td>Server-rendered portals</td></tr>
+              <tr><th>Astro server islands</th><td>Per component</td><td>Fast cached shell, deferred islands</td><td>Shell yes</td><td>Within one app</td><td>Personalised bits on cached pages</td></tr>
+              <tr><th>Edge fragments</th><td>Shadow DOM + separate JS context</td><td>Streamed, interactive early</td><td>Yes</td><td><span class="yes">Yes</span></td><td>Migrating a legacy SPA</td></tr>
+              <tr><th>iframes (SAP Luigi)</th><td><b>Strongest</b></td><td><b>Worst</b> (duplicate frameworks)</td><td>Poor</td><td><span class="yes">Yes</span></td><td>Untrusted code, admin consoles</td></tr>
+              <tr><th>Web Components + Shadow DOM</th><td>CSS scoped, JS global</td><td>Good if deps shared</td><td>Needs Declarative Shadow DOM</td><td><span class="yes">Yes</span></td><td>Framework-agnostic widgets</td></tr>
+              <tr><th>single-spa / qiankun / Piral</th><td>App level (qiankun adds a JS sandbox)</td><td>Medium</td><td>Weak</td><td><span class="yes">Yes</span></td><td>Multi-framework shells, migrations</td></tr>
+              <tr><th>Module Federation 2</th><td>Low (shared globals)</td><td>Very good (singletons, preload)</td><td>Possible but complex</td><td><span class="yes">Yes</span></td><td>Same-framework teams sharing at run time</td></tr>
+              <tr><th>Native Federation</th><td>Low</td><td>Good (native ESM)</td><td>Angular SSR supported</td><td><span class="yes">Yes</span></td><td>Angular / bundler-agnostic ESM</td></tr>
+            </tbody>
+          </table></div>
+          <div class="callout info"><div><strong class="label">Judgements, not benchmarks</strong>The isolation and performance ratings are qualitative, drawn from the sources. No independent benchmark compares these techniques.</div></div>
+
+          <h3 class="sub"><span>5.5</span> The isolation ladder</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 124" role="img" aria-label="An isolation scale from weak to strong: plain JS, Module Federation, Web Components, qiankun sandbox, Web Fragments, iframes" xmlns="http://www.w3.org/2000/svg">
+                <path class="rail" d="M30,60 H370" style="stroke:var(--border);stroke-width:6"/>
+                <circle class="dot" cx="30" cy="60" r="7"/><circle class="dot" cx="98" cy="60" r="7"/><circle class="dot" cx="166" cy="60" r="7"/><circle class="dot" cx="234" cy="60" r="7"/><circle class="dot" cx="302" cy="60" r="7"/><circle class="dot" cx="370" cy="60" r="7"/>
+                <text x="30" y="40" class="s" text-anchor="middle">plain JS</text>
+                <text x="98" y="90" class="s" text-anchor="middle">Module Fed.</text>
+                <text x="166" y="40" class="s" text-anchor="middle">Web Comp.</text>
+                <text x="234" y="90" class="s" text-anchor="middle">qiankun sandbox</text>
+                <text x="302" y="40" class="s" text-anchor="middle">Web Fragments</text>
+                <text x="370" y="90" class="s" text-anchor="middle">iframes</text>
+                <g class="iso-mk"><circle cx="30" cy="60" r="12" style="fill:none;stroke:var(--exam);stroke-width:3"/></g>
+                <text x="10" y="116" class="b" style="fill:var(--trap)">← weaker isolation</text>
+                <text x="390" y="116" class="b" text-anchor="end" style="fill:var(--tip)">stronger isolation →</text>
+              </svg>
+            </div>
+            <figcaption>Animated: the ring walks from weakest to strongest isolation. iframes are the strongest, and also the worst for performance.</figcaption>
+          </figure>
+
+          <h3 class="sub"><span>5.6</span> Tool status in late 2026</h3>
+          <div class="table-wrap"><table class="compare">
+            <thead><tr><th>Tool</th><th>Latest</th><th>Weekly downloads</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><th><code>@module-federation/runtime</code></th><td>2.9.4 (24 Nov 2026)</td><td>~14.7 M</td><td><span class="st ok">Active, dominant</span></td></tr>
+              <tr><th><code>@module-federation/enhanced</code></th><td>2.9.4</td><td>~4.45 M</td><td><span class="st ok">Active</span> webpack / Rspack</td></tr>
+              <tr><th><code>@module-federation/vite</code></th><td>1.25.0</td><td>~2.0 M</td><td><span class="st ok">Active</span> replaces <code>@originjs/vite-plugin-federation</code> (inactive since 2025)</td></tr>
+              <tr><th><code>@softarc/native-federation</code></th><td>4.10.2</td><td>~181 k</td><td><span class="st ok">Active</span> Angular / esbuild</td></tr>
+              <tr><th>single-spa</th><td>6.0.3 (v7 still beta)</td><td>~581 k</td><td><span class="st inf">Stable, slow</span></td></tr>
+              <tr><th>qiankun</th><td>2.10.16 (v3 in RC)</td><td>~74 k</td><td><span class="st warn">No stable release since 2023</span></td></tr>
+              <tr><th>piral-core</th><td>1.12.5</td><td>~21 k</td><td><span class="st inf">Active, niche</span></td></tr>
+              <tr><th>SAP Luigi</th><td>2.33.0</td><td>~2.7 k</td><td><span class="st inf">Active, niche</span></td></tr>
+              <tr><th>Podium layout</th><td>5.4.10</td><td>~0.6 k</td><td><span class="st inf">Active, niche</span></td></tr>
+              <tr><th>web-fragments</th><td>0.8.2</td><td>~6.4 k</td><td><span class="st warn">Experimental</span></td></tr>
+              <tr><th>SystemJS</th><td>6.15.1 (2024)</td><td>~1.28 M</td><td><span class="st bad">Legacy</span> native import maps replace it</td></tr>
+              <tr><th>Zalando Tailor</th><td>—</td><td>—</td><td><span class="st bad">Archived</span></td></tr>
+            </tbody>
+          </table></div>
+          <div class="callout trap"><div><strong class="label">Read downloads carefully</strong>Counts (npm, 25 Nov 2026) include transitive installs: Rsbuild, Modern.js and the Vite plugin all pull in the MF runtime. Treat them as relative signals, not user counts.</div></div>
+
+          <h3 class="sub"><span>5.7</span> The one-line chooser</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🔎</span> SEO + separate domains</h3><p>→ <b>Route split</b></p></div>
+            <div class="card"><h3><span class="ico">🧩</span> Widgets, one framework, in a page</h3><p>→ <b>Module Federation</b></p></div>
+            <div class="card"><h3><span class="ico">🔀</span> Mixed frameworks or legacy migration</h3><p>→ <b>single-spa</b> or <b>Web Fragments</b></p></div>
+            <div class="card"><h3><span class="ico">🔒</span> Untrusted code</h3><p>→ <b>iframe</b></p></div>
+          </div>
+          <p class="muted">AWS: teams new to micro frontends rarely choose edge-side composition.</p>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Build-time packages re-couple releases</li>
+            <li>Server/edge composition wins for SEO</li>
+            <li>MF 2 leads runtime composition</li>
+            <li>iframes: strongest isolation, worst speed</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 6 -->
+        <section class="domain" id="mfe6-module-federation" data-mod="6" data-short="Module Federation">
+          <div class="domain-head"><span class="domain-num">6</span><h2>Module Federation deep dive</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>The host page asks: "Give me the Button from app1". The browser fetches app1's file list, agrees on <b>one shared copy of React</b>, downloads the Button and shows it. No rebuild of the host.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Share scope</dt><dd>The runtime's list of shared packages and their versions.</dd>
+              <dt>Singleton</dt><dd>Only one copy may load (React must be one).</dd>
+              <dt><code>mf-manifest.json</code></dt><dd>A remote's description file (classic: <code>remoteEntry.js</code>).</dd>
+              <dt>Exposed module</dt><dd>What a remote offers to others, e.g. <code>app1/Button</code>.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>6.1</span> The runtime load, step by step</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 280" role="img" aria-label="Host initialises the share scope, calls loadRemote, fetches the manifest, the remote registers shared deps, one React wins, chunks download and the Button mounts" xmlns="http://www.w3.org/2000/svg">
+                  <g class="bx a"><rect x="6" y="24" width="134" height="246" rx="8"/><text x="73" y="44" class="b" text-anchor="middle">Host (shell)</text></g>
+                  <text x="73" y="64" class="s" text-anchor="middle" data-from="1">shares: react</text>
+                  <g data-from="2"><text x="20" y="102" class="m sm">loadRemote(</text><text x="20" y="117" class="m sm">'app1/Button')</text></g>
+                  <g class="bx dash"><rect x="18" y="190" width="110" height="64" rx="7"/></g>
+                  <text x="73" y="226" class="s" text-anchor="middle" data-until="7">empty slot</text>
+                  <g data-from="7"><rect class="btnr" x="34" y="206" width="78" height="30" rx="7"/><text x="73" y="226" class="on-btn" text-anchor="middle">Button</text></g>
+                  <g class="bx warn"><rect x="260" y="24" width="134" height="246" rx="8"/><text x="327" y="44" class="b" text-anchor="middle">Remote app1</text><text x="327" y="60" class="s" text-anchor="middle">on a CDN</text></g>
+                  <g class="bx"><rect x="270" y="74" width="114" height="24" rx="5"/><text x="327" y="90" class="m sm" text-anchor="middle">mf-manifest.json</text></g>
+                  <g class="bx"><rect x="270" y="108" width="114" height="24" rx="5"/><text x="327" y="124" class="m sm" text-anchor="middle">Button chunk</text></g>
+                  <g class="bx"><rect x="270" y="142" width="114" height="24" rx="5"/><text x="327" y="158" class="m sm" text-anchor="middle">button.css</text></g>
+                  <g class="bx"><rect x="270" y="176" width="114" height="24" rx="5"/><text x="327" y="192" class="m sm" text-anchor="middle">react (shared)</text></g>
+                  <g class="bx inf"><rect x="150" y="150" width="100" height="120" rx="8"/><text x="200" y="168" class="b" text-anchor="middle">Share scope</text></g>
+                  <g data-from="1"><rect class="soft" x="158" y="178" width="84" height="22" rx="11" style="stroke:var(--info)"/><text x="200" y="193" class="m sm" text-anchor="middle">react · host</text></g>
+                  <g data-from="4" data-until="5"><rect class="soft" x="158" y="206" width="84" height="22" rx="11" style="stroke:var(--key)"/><text x="200" y="221" class="m sm" text-anchor="middle">react · remote</text></g>
+                  <path class="ln d" d="M270,188 L250,214" data-from="4" data-until="5"/>
+                  <g data-from="5"><text x="200" y="222" class="b" text-anchor="middle" style="fill:var(--tip)">✓ one React</text><text x="200" y="240" class="m sm" text-anchor="middle">singleton</text><text x="200" y="256" class="m sm" text-anchor="middle">requiredVersion</text></g>
+                  <g data-from="3"><path class="ln a d" d="M140,86 H260"/><text x="200" y="80" class="s" text-anchor="middle">fetch manifest</text></g>
+                  <g data-from="6"><path class="ln a" d="M260,124 H140"/><text x="200" y="118" class="s" text-anchor="middle">chunk + CSS</text></g>
+                  <g class="pkt" data-at="3" style="--dx:108px;--dy:0px"><circle cx="146" cy="86" r="6"/></g>
+                  <g class="pkt" data-at="6" style="--dx:-108px;--dy:0px"><circle cx="254" cy="124" r="6"/></g>
+                  <rect class="hlr" data-on="1 5" x="147" y="147" width="106" height="126" rx="10"/>
+                  <rect class="hlr" data-on="2" x="12" y="88" width="122" height="36" rx="7"/>
+                  <rect class="hlr" data-on="3" x="266" y="70" width="122" height="32" rx="7"/>
+                  <rect class="hlr" data-on="4" x="266" y="172" width="122" height="32" rx="7"/>
+                  <rect class="hlr" data-on="6" x="266" y="104" width="122" height="66" rx="7"/>
+                  <rect class="hlr" data-on="7" x="14" y="186" width="118" height="72" rx="9"/>
+                </svg>
+              </div>
+              <figcaption>Host colours: <b style="color:var(--exam)">host</b>, <b style="color:var(--key)">remote</b>, <b style="color:var(--info)">share scope</b>.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The host boots and initialises the <b>share scope</b> with its shared deps.</li>
+                <li><span class="n">2</span>Code hits <code>loadRemote('app1/Button')</code>.</li>
+                <li><span class="n">3</span>The runtime fetches the remote's <code>mf-manifest.json</code> (or classic <code>remoteEntry.js</code>).</li>
+                <li><span class="n">4</span>The remote registers its shared deps into the share scope.</li>
+                <li><span class="n">5</span>Negotiation picks <b>one version per shared package</b> (<code>singleton</code>, <code>requiredVersion</code>).</li>
+                <li><span class="n">6</span>The runtime downloads the exposed module's chunks and CSS.</li>
+                <li><span class="n">7</span>The host renders (mounts) the Button, using the one shared React.</li>
+              </ol>
+            </div>
+          </div>
+
+          <h3 class="sub"><span>6.2</span> The <code>shared</code> switches</h3>
+          <div class="table-wrap"><table class="compare">
+            <thead><tr><th>Option</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><th><code>singleton: true</code></th><td>Only one version loads. The higher wins; the lower side gets a warning</td></tr>
+              <tr><th><code>requiredVersion</code></th><td>Range check. Too low = console warning</td></tr>
+              <tr><th><code>eager: true</code></th><td>Bundles the dep into the entry, which "can greatly increase" its size</td></tr>
+              <tr><th><code>shareStrategy: 'version-first'</code> (default)</th><td>Loads all remote entries at startup. <span class="no">An offline remote can break startup</span></td></tr>
+              <tr><th><code>shareStrategy: 'loaded-first'</code></th><td>Reuses loaded deps, loads remotes on demand. <span class="yes">Suggested for production with network risk</span></td></tr>
+            </tbody>
+          </table></div>
+          <div class="callout key"><div><strong class="label">Why React must be a singleton</strong>Hooks and context break with two copies. Treat a framework major upgrade as a coordinated <b>platform event</b>; leave everything else to teams.</div></div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>// a typical shared config
+shared: {
+  react:       { singleton: true, requiredVersion: '^19.0.0' },
+  'react-dom': { singleton: true, requiredVersion: '^19.0.0' }
+}
+
+// in the host
+loadRemote('app1/Button')</code></pre>
+          </div></details>
+
+          <h3 class="sub"><span>6.3</span> What MF 2.0 added on top of webpack 5's idea</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">⚙️</span> Standalone runtime</h3><p>Not tied to one bundler.</p></div>
+            <div class="card"><h3><span class="ico">📄</span> Manifest</h3><p><code>mf-manifest.json</code> describes each remote.</p></div>
+            <div class="card"><h3><span class="ico">🔤</span> Dynamic type hints</h3><p>Generated <code>@mf-types</code> for TypeScript.</p></div>
+            <div class="card"><h3><span class="ico">🔌</span> Runtime plugins</h3><p>Hook into loading.</p></div>
+            <div class="card"><h3><span class="ico">🛠️</span> Chrome DevTools</h3><p>Inspect remotes and shares.</p></div>
+            <div class="card"><h3><span class="ico">🅰️</span> Native Federation</h3><p>Angular's esbuild world: remote metadata becomes a native <b>import map</b>.</p></div>
+          </div>
+          <div class="senior">
+            <h3 class="sub"><span>S</span> Senior points</h3>
+            <ul>
+              <li><b>Module Federation does not by itself guarantee independent deploys</b> (GreatFrontEnd). You still need per-MFE pipelines and a manifest pointer.</li>
+              <li>Pick <b>import maps or Module Federation, not both</b> (single-spa).</li>
+              <li>For Vite, use <code>@module-federation/vite</code>; the old <code>@originjs</code> plugin is inactive since 2025.</li>
+              <li>Types via <code>@mf-types</code> are always current but need a fetch at build time (default timeout 2000 ms).</li>
+            </ul>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Host → manifest → share scope → one version → chunks → mount</li>
+            <li>React and react-dom: singletons</li>
+            <li>Prefer <code>loaded-first</code> when remotes can be offline</li>
+            <li>MF alone ≠ independent deploys</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 7 -->
+        <section class="domain" id="mfe7-routing-communication" data-mod="7" data-short="Routing and communication">
+          <div class="domain-head"><span class="domain-num">7</span><h2>Routing and communication</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>The <b>shell owns the main roads</b> (top-level URLs). Each team owns the streets inside its area. Teams talk through the <b>URL</b> and short <b>event messages</b>, never by reaching into each other's memory.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt><code>activeWhen</code></dt><dd>single-spa's rule for which URL turns an app on.</dd>
+              <dt>CustomEvent</dt><dd>A browser event with your own name and data.</dd>
+              <dt>Global store</dt><dd>One shared state object (like shared Redux). Rejected here.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>7.1</span> single-spa lifecycle</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 248" role="img" aria-label="The URL changes from settings to orders; settings unmounts, orders loads, bootstraps once and mounts into the container" xmlns="http://www.w3.org/2000/svg">
+                  <rect class="addr" x="8" y="8" width="384" height="22" rx="11"/>
+                  <text x="200" y="23" class="m sm" text-anchor="middle" data-until="1">/settings</text>
+                  <text x="200" y="23" class="m sm" text-anchor="middle" data-from="1">/orders</text>
+                  <g class="bx"><rect x="8" y="46" width="88" height="44" rx="7"/><text x="52" y="66" class="b" text-anchor="middle">load</text><text x="52" y="81" class="s" text-anchor="middle">fetch code</text></g>
+                  <g class="bx"><rect x="106" y="46" width="88" height="44" rx="7"/><text x="150" y="66" class="b" text-anchor="middle">bootstrap</text><text x="150" y="81" class="s" text-anchor="middle">once only</text></g>
+                  <g class="bx"><rect x="204" y="46" width="88" height="44" rx="7"/><text x="248" y="66" class="b" text-anchor="middle">mount</text><text x="248" y="81" class="s" text-anchor="middle">render to DOM</text></g>
+                  <g class="bx"><rect x="302" y="46" width="88" height="44" rx="7"/><text x="346" y="66" class="b" text-anchor="middle">unmount</text><text x="346" y="81" class="s" text-anchor="middle">clean up</text></g>
+                  <path class="ln" d="M96,68 H106 M194,68 H204 M292,68 H302"/>
+                  <g class="bx"><rect x="8" y="104" width="200" height="136" rx="8"/></g>
+                  <text x="18" y="122" class="m sm">#app container</text>
+                  <g data-until="2"><g class="bx tA"><rect x="20" y="132" width="176" height="96" rx="6"/><text x="108" y="184" class="b" text-anchor="middle">Settings UI</text></g></g>
+                  <text x="108" y="184" class="s" text-anchor="middle" data-from="2" data-until="5">empty</text>
+                  <g data-from="5"><g class="bx tB"><rect x="20" y="132" width="176" height="96" rx="6"/><text x="108" y="184" class="b" text-anchor="middle">Orders UI</text></g></g>
+                  <g class="bx"><rect x="220" y="104" width="172" height="136" rx="8"/><text x="306" y="124" class="b" text-anchor="middle">Registered apps</text></g>
+                  <text x="230" y="152" class="m sm">nav → always on</text>
+                  <text x="230" y="178" class="m sm">settings → /settings</text>
+                  <text x="230" y="204" class="m sm">orders → /orders</text>
+                  <g data-from="1"><text x="384" y="152" class="okm" text-anchor="end">✓</text><text x="384" y="178" class="xm" text-anchor="end" style="font-size:14px">✗</text><text x="384" y="204" class="okm" text-anchor="end">✓</text></g>
+                  <rect class="hlr" data-on="1" x="217" y="101" width="178" height="142" rx="10"/>
+                  <rect class="hlr" data-on="2" x="299" y="43" width="94" height="50" rx="9"/>
+                  <rect class="hlr" data-on="3" x="5" y="43" width="94" height="50" rx="9"/>
+                  <rect class="hlr" data-on="4" x="103" y="43" width="94" height="50" rx="9"/>
+                  <rect class="hlr" data-on="5" x="201" y="43" width="94" height="50" rx="9"/>
+                  <rect class="hlr" data-on="2 5" x="5" y="101" width="206" height="142" rx="10"/>
+                </svg>
+              </div>
+              <figcaption>The fixed navigation is its own always-active app (single-spa's recommended setup).</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The URL changes. single-spa checks every app's <code>activeWhen</code>.</li>
+                <li><span class="n">2</span>Apps going inactive get <code>unmount</code>: clean DOM and listeners.</li>
+                <li><span class="n">3</span>Newly active apps <b>load</b>, via an import map or <code>import()</code>.</li>
+                <li><span class="n">4</span><code>bootstrap</code> runs once, the first time only.</li>
+                <li><span class="n">5</span><code>mount</code> renders into the app's DOM container.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="card accent"><h3><span class="ico">🛣️</span> Hierarchical routing</h3><p>Shell owns top-level paths. Each MFE owns sub-routes under its prefix.</p></div>
+            <div class="card accent"><h3><span class="ico">🔗</span> URL = the contract</h3><p>Fowler uses <code>/restaurant/:id</code> as the interface between MFEs. Test such routes automatically.</p></div>
+            <div class="card accent"><h3><span class="ico">⚡</span> Hide hard navigations</h3><p>Vercel prefetches assets when a link becomes visible and prerenders on interaction with Speculation Rules.</p></div>
+          </div>
+          <div class="callout trap"><div><strong class="label">Classic failure: a router per MFE</strong>Every router calls the History API, but routers only hear <code>popstate</code>, not <code>pushState</code>. The back button becomes unpredictable unless shell and children sync explicitly.</div></div>
+
+          <h3 class="sub"><span>7.2</span> How MFEs talk</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 268" role="img" aria-label="Product and Cart micro frontends read the URL, get props from the shell, talk through a CustomEvent bus and fetch shared data from a BFF; a global store is crossed out" xmlns="http://www.w3.org/2000/svg">
+                  <rect class="addr" x="8" y="6" width="384" height="22" rx="11"/><text x="200" y="21" class="m sm" text-anchor="middle">/product/42?color=red</text>
+                  <g class="bx a"><rect x="8" y="38" width="384" height="30" rx="7"/><text x="200" y="58" class="b" text-anchor="middle">Shell: header · login · routing</text></g>
+                  <g class="bx tB"><rect x="8" y="88" width="170" height="96" rx="8"/><text x="93" y="108" class="b" text-anchor="middle">Product MFE</text></g>
+                  <text x="93" y="128" class="s" text-anchor="middle" data-from="1">reads URL: id 42</text>
+                  <text x="93" y="146" class="s" text-anchor="middle" data-from="2">props from shell</text>
+                  <g data-from="3"><rect class="btnr" x="40" y="154" width="106" height="22" rx="6"/><text x="93" y="169" class="on-btn" text-anchor="middle">Add to cart</text></g>
+                  <g class="bx tC"><rect x="222" y="88" width="170" height="96" rx="8"/><text x="307" y="108" class="b" text-anchor="middle">Cart MFE</text></g>
+                  <text x="307" y="128" class="s" text-anchor="middle" data-from="1">reads URL too</text>
+                  <circle cx="307" cy="158" r="14" class="soft" style="stroke:var(--tip)"/>
+                  <text x="307" y="163" class="b" text-anchor="middle" data-until="4">0</text>
+                  <text x="307" y="163" class="b" text-anchor="middle" data-from="4" style="fill:var(--tip)">1</text>
+                  <g data-from="2"><path class="ln a" d="M93,68 V88"/><text x="100" y="82" class="s">props</text></g>
+                  <path class="ln d" d="M8,200 H392"/>
+                  <text x="200" y="215" class="s" text-anchor="middle">window · CustomEvent bus</text>
+                  <text x="200" y="195" class="m sm" text-anchor="middle" data-from="3">cart:item-added@v1</text>
+                  <g data-from="5"><path class="ln ok" d="M160,232 L120,184 M240,232 L280,184"/><g class="bx ok"><rect x="140" y="228" width="120" height="34" rx="7"/><text x="200" y="250" class="b" text-anchor="middle">BFF / backend</text></g></g>
+                  <g data-from="6"><g class="bx bad"><rect x="282" y="228" width="110" height="34" rx="7"/><text x="337" y="250" class="b" text-anchor="middle">Global store</text></g><path class="ln bad" d="M282,228 L392,262 M392,228 L282,262" style="stroke-width:2.5"/></g>
+                  <g class="pkt" data-at="3" style="--dx:200px;--dy:0px"><circle cx="100" cy="200" r="6"/></g>
+                  <rect class="hlr" data-on="1" x="5" y="3" width="390" height="28" rx="13"/>
+                  <rect class="hlr" data-on="2" x="5" y="85" width="176" height="102" rx="10"/>
+                  <rect class="hlr" data-on="3" x="5" y="184" width="390" height="36" rx="10"/>
+                  <rect class="hlr" data-on="4" x="219" y="85" width="176" height="102" rx="10"/>
+                  <rect class="hlr" data-on="5" x="137" y="225" width="126" height="40" rx="9"/>
+                  <rect class="hlr" data-on="6" x="279" y="225" width="116" height="40" rx="9"/>
+                </svg>
+              </div>
+              <figcaption>Order of preference: URL &gt; props &gt; events &gt; read-only shared interfaces. No global store.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span><b>URL:</b> navigable state (selected item, filters) lives in the URL. Both MFEs can read it, and deep links work for free.</li>
+                <li><span class="n">2</span><b>Props:</b> the shell passes data down to an MFE as props or attributes.</li>
+                <li><span class="n">3</span><b>Events:</b> Product dispatches <code>CustomEvent('cart:item-added@v1')</code> on <code>window</code>.</li>
+                <li><span class="n">4</span>Cart listens and updates its badge. Neither knows the other's code.</li>
+                <li><span class="n">5</span><b>Shared server data</b> comes from the backend, a BFF or a cache module, not a store.</li>
+                <li><span class="n">6</span><b>No global store.</b> AWS: shared Redux "creates significant coupling". If two MFEs chat constantly, merge them.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="table-wrap"><table class="compare">
+            <thead><tr><th>Need</th><th>Use</th></tr></thead>
+            <tbody>
+              <tr><th>🔗 Navigable state</th><td>URL path and query</td></tr>
+              <tr><th>⬇️ Shell → MFE data</th><td>Props or attributes</td></tr>
+              <tr><th>📣 Sibling notice</th><td><code>window.dispatchEvent(new CustomEvent('cart:item-added@v1', { detail }))</code></td></tr>
+              <tr><th>🗄️ Shared server data</th><td>Backend, BFF or a cache module</td></tr>
+              <tr><th>🗂️ Cross-tab sync (logout everywhere)</th><td><code>BroadcastChannel</code> (same origin only)</td></tr>
+            </tbody>
+          </table></div>
+          <div class="senior">
+            <h3 class="sub"><span>S</span> Senior points</h3>
+            <ul>
+              <li>AWS: an <b>event bus distributed as a library</b>, standard DOM events, and a shared wiki page listing every event (an event catalogue).</li>
+              <li>single-spa: "if two frequently exchange state, consider merging them".</li>
+              <li>Where sharing is unavoidable, opt in to <b>read-only</b> sharing through defined interfaces.</li>
+              <li>Event naming (domain prefix, <code>@v1</code> suffix, additive-only changes) is inferred from microservice practice; no source states it as a rule.</li>
+              <li>OWASP: an in-page bus has no browser-enforced identity, so don't treat event names as proof of authority.</li>
+            </ul>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Shell owns history and top-level paths</li>
+            <li>URL &gt; props &gt; events</li>
+            <li>No global store</li>
+            <li>Chatty MFEs = wrong boundary</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 8 -->
+        <section class="domain" id="mfe8-shared-styling" data-mod="8" data-short="Shared deps and styling">
+          <div class="domain-head"><span class="domain-num">8</span><h2>Shared dependencies, styling and the design system</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Share the <b>big, heavy things</b> (React) as one copy. Let small libraries be copied. Share the <b>look</b> through design tokens (colour, spacing variables) so every team's pages feel like one site.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Design token</dt><dd>A named design value, like <code>--brand</code>, usually a CSS custom property.</dd>
+              <dt>Shadow DOM</dt><dd>A browser wall that keeps outside CSS out of a component.</dd>
+              <dt>Cascade layers</dt><dd>CSS <code>@layer</code>: decides which styles win in a fixed order.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>8.1</span> Three viable strategies (AWS)</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🚫</span> Share nothing</h3><p>Each MFE bundles its own deps.</p></div>
+            <div class="card"><h3><span class="ico">🗺️</span> Web standards</h3><p>Import maps.</p></div>
+            <div class="card"><h3><span class="ico">🧩</span> Module Federation</h3><p>Runtime share scope.</p></div>
+          </div>
+          <div class="callout trap"><div><strong class="label">Everything else</strong>AWS calls other approaches "generally anti-patterns".</div></div>
+          <div class="dodont">
+            <div class="do"><h4>Share</h4><ul><li>Big libraries (React, rxjs) as in-browser modules</li><li>Framework singletons</li><li>A versioned design system</li><li>UI logic only</li></ul></div>
+            <div class="dont"><h4>Don't share</h4><ul><li>Small libs like react-router: let them duplicate</li><li>Domain logic: no shared <code>ProductTable</code> (Fowler)</li><li>A component library built too early</li></ul></div>
+          </div>
+          <p class="muted">Shared deps must be upgraded together (single-spa).</p>
+
+          <h3 class="sub"><span>8.2</span> The design system: package or federated?</h3>
+          <div class="grid">
+            <div class="card accent"><h3><span class="ico">📦</span> Versioned npm package</h3><p>Most common. Tokens are the shared contract.</p><div class="tag-row"><span class="st ok">deterministic</span><span class="st ok">reviewable</span><span class="st warn">fixes roll out slowly</span></div></div>
+            <div class="card"><h3><span class="ico">📡</span> Federated at run time</h3><p>One update reaches every MFE at once.</p><div class="tag-row"><span class="st ok">instant rollout</span><span class="st bad">a bug ships everywhere</span></div></div>
+          </div>
+
+          <h3 class="sub"><span>8.3</span> Styling layers</h3>
+          <div class="stack">
+            <div class="layer" style="--i:0">Tokens <small>CSS custom properties, shared</small></div>
+            <div class="layer" style="--i:1">Design-system components <small>versioned package</small></div>
+            <div class="layer" style="--i:2">MFE-scoped styles <small>CSS Modules or a prefix</small></div>
+            <div class="layer" style="--i:3">Optional Shadow DOM boundary <small>per widget</small></div>
+          </div>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 190" role="img" aria-label="Global CSS bounces off the Shadow DOM wall, while a CSS custom property passes through and colours the button inside" xmlns="http://www.w3.org/2000/svg">
+                <g class="bx bad"><rect x="8" y="22" width="150" height="40" rx="7"/><text x="83" y="39" class="b" text-anchor="middle">Global CSS</text><text x="83" y="55" class="m sm" text-anchor="middle">h1 { … }</text></g>
+                <g class="bx ok"><rect x="8" y="112" width="150" height="40" rx="7"/><text x="83" y="129" class="b" text-anchor="middle">Token</text><text x="83" y="145" class="m sm" text-anchor="middle">--brand: …</text></g>
+                <path class="wall" d="M222,10 V180"/>
+                <text x="222" y="186" class="s" text-anchor="middle">Shadow DOM boundary</text>
+                <g class="bx tB"><rect x="250" y="40" width="142" height="110" rx="8"/><text x="321" y="62" class="b" text-anchor="middle">MFE widget</text></g>
+                <rect class="btnr tok-btn" x="274" y="98" width="94" height="28" rx="7"/><text x="321" y="117" class="on-btn" text-anchor="middle">Buy</text>
+                <text x="200" y="34" class="xm blk" text-anchor="middle" style="font-size:13px">✗ blocked</text>
+                <text x="236" y="170" class="okm psd" style="font-size:12px">✓ passes</text>
+                <g class="g-bounce"><circle class="gdot" cx="164" cy="42" r="7"/></g>
+                <g class="t-pass"><circle class="tdot" cx="164" cy="132" r="7"/></g>
+              </svg>
+            </div>
+            <figcaption>Animated: global CSS stops at the Shadow DOM wall. CSS custom properties (tokens) pass through, so the button still gets the brand colour.</figcaption>
+          </figure>
+          <div class="senior">
+            <h3 class="sub"><span>S</span> Senior points</h3>
+            <ul>
+              <li>Fowler: "the approach that you pick does not matter all that much" if styles compose predictably (BEM, Sass nesting, CSS Modules, CSS-in-JS, Shadow DOM).</li>
+              <li>Prefixing: <code>postcss-prefix-selector</code> (single-spa ecosystem).</li>
+              <li>Cascade layers make overrides deterministic, but if two versions of one library emit into the same layer, load order still decides.</li>
+              <li><b>Global resets and fonts belong to the shell only.</b></li>
+            </ul>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Big libs shared, small libs duplicated</li>
+            <li>Import maps or MF, not both</li>
+            <li>Tokens are the contract; they cross Shadow DOM</li>
+            <li>Share UI logic, never domain logic</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 9 -->
+        <section class="domain" id="mfe9-security-performance" data-mod="9" data-short="Security and performance">
+          <div class="domain-head"><span class="domain-num">9</span><h2>Security and performance</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Separate repos are <b>not separate rooms</b> in the browser. Every piece on a page can touch everything else. And many small pieces can mean many slow round trips, unless you plan for them.</p>
+          </div>
+
+          <h3 class="sub"><span>9.1</span> One page = one trust zone</h3>
+          <div class="callout key"><div><strong class="label">OWASP, the anchor</strong>Remote JavaScript, Module Federation included, <b>runs with the host page's full privileges</b>. Another origin does not sandbox it. Shadow DOM does not isolate scripts.</div></div>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🔑</span> Login</h3><p>Shell owns authentication.</p></div>
+            <div class="card"><h3><span class="ico">🍪</span> Tokens</h3><p>Server-side behind a <b>BFF</b>; HttpOnly Secure cookie + CSRF protection. Never in localStorage.</p></div>
+            <div class="card"><h3><span class="ico">🛂</span> Authorisation</h3><p>On the server, every request.</p></div>
+            <div class="card"><h3><span class="ico">📥</span> Loading remotes</h3><p>Only approved HTTPS URLs from host config. <b>Never from query parameters.</b></p></div>
+            <div class="card"><h3><span class="ico">🧾</span> Integrity</h3><p>SRI on entries <b>and</b> dynamic chunks; immutable, reviewed releases.</p></div>
+            <div class="card"><h3><span class="ico">🧱</span> CSP</h3><p>Host's CSP applies. An allowed source is still trusted code.</p></div>
+            <div class="card"><h3><span class="ico">📦</span> Less-trusted features</h3><p>Sandboxed iframe on its own origin. Never <code>allow-scripts</code> + <code>allow-same-origin</code> on the host origin.</p></div>
+            <div class="card"><h3><span class="ico">✉️</span> postMessage</h3><p>Exact <code>targetOrigin</code>; check <code>event.origin</code> and <code>event.source</code>; validate data.</p></div>
+            <div class="card"><h3><span class="ico">🗝️</span> Deploy credentials</h3><p>Separate per shell and per remote. Keep a known-good release for rollback.</p></div>
+          </div>
+          <div class="dodont">
+            <div class="dont"><h4>2019 (Fowler's example)</h4><ul><li>Container injects the token into each MFE</li></ul></div>
+            <div class="do"><h4>Now (OWASP)</h4><ul><li>Tokens stay out of the browser: BFF + HttpOnly cookie</li></ul></div>
+          </div>
+
+          <h3 class="sub"><span>9.2</span> Performance: help or hurt</h3>
+          <div class="grid">
+            <div class="card"><span class="tile-n ok">6 MB → 3 × 2 MB</span><span class="tile-l">AWS's <b>illustrative</b> per-route split; "might improve first-load performance by up to 300 percent" (not measured)</span></div>
+            <div class="card"><span class="tile-n bad">~50%</span><span class="tile-l">React + react-dom share of the bundle in Jackson's example app</span></div>
+            <div class="card"><span class="tile-n">7 trips</span><span class="tile-l">in the loading waterfall below</span></div>
+          </div>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 262" role="img" aria-label="Top: seven requests one after another. Bottom: HTML with SSR, then preloaded files in parallel, so the page is ready sooner" xmlns="http://www.w3.org/2000/svg">
+                <text x="8" y="14" class="b">Waterfall: each step waits for the last</text>
+                <text x="8" y="34" class="s">1 HTML</text><rect class="bar w1" x="118" y="25" width="38" height="12" rx="3"/>
+                <text x="8" y="52" class="s">2 Shell JS</text><rect class="bar w2" x="156" y="43" width="38" height="12" rx="3"/>
+                <text x="8" y="70" class="s">3 Manifest</text><rect class="bar w3" x="194" y="61" width="38" height="12" rx="3"/>
+                <text x="8" y="88" class="s">4 remoteEntry.js</text><rect class="bar w4" x="232" y="79" width="38" height="12" rx="3"/>
+                <text x="8" y="106" class="s">5 Share negotiation</text><rect class="bar w5" x="270" y="97" width="38" height="12" rx="3"/>
+                <text x="8" y="124" class="s">6 MFE chunk</text><rect class="bar w6" x="308" y="115" width="38" height="12" rx="3"/>
+                <text x="8" y="142" class="s">7 Data fetch</text><rect class="bar w7" x="346" y="133" width="38" height="12" rx="3"/>
+                <text x="384" y="160" class="okm rdy-a" text-anchor="end" style="font-size:12px">ready</text>
+                <path class="ln ax" d="M8,172 H392"/>
+                <text x="8" y="192" class="b">Collapsed: preload, singletons, SSR</text>
+                <text x="8" y="212" class="s">HTML (SSR)</text><rect class="bar k2 w1" x="118" y="203" width="38" height="12" rx="3"/>
+                <text x="8" y="230" class="s">Preloaded files</text><rect class="bar k2 w2" x="156" y="221" width="38" height="12" rx="3"/>
+                <text x="8" y="248" class="s">MFE chunk</text><rect class="bar k2 w2" x="156" y="239" width="38" height="12" rx="3"/>
+                <text x="206" y="250" class="okm rdy-b" style="font-size:12px">ready</text>
+              </svg>
+            </div>
+            <figcaption>Animated illustration of the idea only: the report has no measured timings. Vercel reports better LCP and INP but published no figures.</figcaption>
+          </figure>
+          <div class="chips"><span class="chip hot">preloadRemote / manifest prefetch</span><span class="chip hot">singleton framework deps</span><span class="chip hot">loaded-first sharing</span><span class="chip hot">lazy per-route loading</span><span class="chip hot">SSR or server composition for the critical path</span></div>
+          <div class="callout tip"><div><strong class="label">Budgets nobody owns</strong>No single team owns total page weight, so enforce a <b>per-MFE bundle budget in every pipeline</b>. Mezzalira calls these fitness functions.</div></div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Same page = one trust zone</li>
+            <li>Tokens behind a BFF, HttpOnly cookie</li>
+            <li>Remote URLs only from host config, with SRI</li>
+            <li>Kill the waterfall; budget each MFE</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 10 -->
+        <section class="domain" id="mfe10-test-deploy-observe" data-mod="10" data-short="Testing, deployment, observability">
+          <div class="domain-head"><span class="domain-num">10</span><h2>Testing, deployment and observability</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Every release is a <b>new file that is never overwritten</b>. One small list (the manifest) says which file is live. To undo a bad release, you just point the list back.</p>
+            <h4>Words to know</h4>
+            <dl class="glossary">
+              <dt>Immutable asset</dt><dd>A file that never changes once uploaded (new version = new name).</dd>
+              <dt>Canary</dt><dd>Send a small share of users to the new version first.</dd>
+              <dt>Contract test</dt><dd>Checks the agreement at a seam (event shape, props, route) without the other team's app.</dd>
+            </dl>
+          </div>
+
+          <h3 class="sub"><span>10.1</span> Testing: a pyramid per MFE plus contracts</h3>
+          <div class="stack">
+            <div class="layer" style="--i:3">Thin end-to-end <small>"is the page assembled correctly"</small></div>
+            <div class="layer" style="--i:2">Contract tests at the seams <small>events, typed props, routes</small></div>
+            <div class="layer" style="--i:0">Comprehensive unit tests <small>inside each MFE</small></div>
+          </div>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">📚</span> Storybook Composition</h3><p>One Storybook browses others by URL: each MFE's, or the design system's.</p></div>
+            <div class="card"><h3><span class="ico">🏗️</span> Integrate early</h3><p>Standalone dev differs from the container, so test in production-like environments (Fowler).</p></div>
+            <div class="card"><h3><span class="ico">⚠️</span> Vercel found</h3><p>Cross-MFE local and preview testing hard; horizontal splits made testing, releasing and debugging harder.</p></div>
+          </div>
+
+          <h3 class="sub"><span>10.2</span> Deploy: immutable files, one pointer, canary, rollback</h3>
+          <div class="sx" data-stepper>
+            <figure class="dg">
+              <div class="dg-scroll">
+                <svg viewBox="0 0 400 280" role="img" aria-label="A pipeline uploads a new immutable file, the manifest sends 10 then 20 percent of users to it, an alarm fires and the manifest is pointed back with no rebuild" xmlns="http://www.w3.org/2000/svg">
+                  <g class="bx"><rect x="8" y="6" width="384" height="28" rx="7"/><text x="200" y="25" class="b" text-anchor="middle">CI pipeline (one per MFE)</text></g>
+                  <g class="bx"><rect x="8" y="52" width="150" height="118" rx="8"/><text x="83" y="72" class="b" text-anchor="middle">CDN · immutable</text></g>
+                  <g class="bx tA"><rect x="18" y="84" width="130" height="24" rx="5"/><text x="83" y="100" class="m sm" text-anchor="middle">catalog-1.3.4.js</text></g>
+                  <g data-from="1"><g class="bx tB"><rect x="18" y="116" width="130" height="24" rx="5"/><text x="83" y="132" class="m sm" text-anchor="middle">catalog-1.3.5.js</text></g><text x="83" y="160" class="s" text-anchor="middle">new file, nothing overwritten</text></g>
+                  <g class="bx a"><rect x="176" y="52" width="118" height="118" rx="8"/><text x="235" y="72" class="b" text-anchor="middle">Manifest</text><text x="235" y="88" class="s" text-anchor="middle">the one pointer</text></g>
+                  <g data-until="2"><text x="235" y="118" class="m sm" text-anchor="middle">1.3.4 · 100%</text></g>
+                  <g data-from="2" data-until="3"><text x="235" y="118" class="m sm" text-anchor="middle">1.3.4 · 90%</text><text x="235" y="138" class="m sm" text-anchor="middle">1.3.5 · 10%</text></g>
+                  <g data-from="3" data-until="5"><text x="235" y="118" class="m sm" text-anchor="middle">1.3.4 · 80%</text><text x="235" y="138" class="m sm" text-anchor="middle">1.3.5 · 20%</text></g>
+                  <g data-from="5"><text x="235" y="118" class="m sm" text-anchor="middle">1.3.4 · 100%</text><text x="235" y="138" class="m sm" text-anchor="middle">1.3.5 · 0%</text><text x="235" y="158" class="s" text-anchor="middle">no rebuild</text></g>
+                  <g class="bx"><rect x="312" y="52" width="80" height="118" rx="8"/><text x="352" y="72" class="b" text-anchor="middle">Shell</text><text x="352" y="96" class="s" text-anchor="middle">fetches</text><text x="352" y="110" class="s" text-anchor="middle">manifest</text><text x="352" y="124" class="s" text-anchor="middle">at boot</text></g>
+                  <path class="ln d" d="M294,111 H312 M83,34 V52 M235,34 V52"/>
+                  <text x="8" y="192" class="s">Users on the new version</text>
+                  <rect class="track" x="8" y="200" width="384" height="20" rx="10"/>
+                  <rect class="fill" x="8" y="200" width="38" height="20" rx="10" data-from="2" data-until="3"/>
+                  <rect class="fill" x="8" y="200" width="77" height="20" rx="10" data-from="3" data-until="5"/>
+                  <text x="56" y="215" class="m sm" data-from="2" data-until="3">10%</text>
+                  <text x="94" y="215" class="m sm" data-from="3" data-until="5">20%, +10% a minute</text>
+                  <text x="200" y="245" class="b" text-anchor="middle" style="fill:var(--trap)" data-from="4">🔔 Alarm: errors up → stop the ramp</text>
+                  <text x="200" y="268" class="s" text-anchor="middle" data-from="5">Rollback = repoint the manifest. ~20% of users hit, not 100%.</text>
+                  <g class="pkt" data-at="1" style="--dx:0px;--dy:44px"><circle cx="83" cy="36" r="6"/></g>
+                  <g class="pkt" data-at="2" style="--dx:0px;--dy:44px"><circle cx="235" cy="36" r="6"/></g>
+                  <g class="pkt" data-at="3" style="--dx:28px;--dy:0px"><circle cx="290" cy="111" r="6"/></g>
+                  <g class="pkt" data-at="5" style="--dx:0px;--dy:44px"><circle cx="235" cy="36" r="6"/></g>
+                  <rect class="hlr" data-on="1" x="5" y="49" width="156" height="124" rx="10"/>
+                  <rect class="hlr" data-on="2 5" x="173" y="49" width="124" height="124" rx="10"/>
+                  <rect class="hlr" data-on="3" x="309" y="49" width="86" height="124" rx="10"/>
+                  <rect class="hlr" data-on="4" x="5" y="197" width="390" height="26" rx="13"/>
+                </svg>
+              </div>
+              <figcaption>File names are illustrative, as in the report. The 10%-then-+10%-a-minute ramp and the ~20% figure come from AWS's canary example.</figcaption>
+            </figure>
+            <div class="sx-side">
+              <ol class="sx-steps">
+                <li><span class="n">1</span>The pipeline uploads <code>catalog-1.3.5.js</code> to the CDN as a <b>new file, never overwriting</b>.</li>
+                <li><span class="n">2</span>It updates the one mutable <b>pointer</b> (import map or discovery manifest) through an API. Canary: weighted entries, starting at 10% of users.</li>
+                <li><span class="n">3</span>The shell fetches the manifest at boot and loads the chosen remote. The ramp adds 10% a minute.</li>
+                <li><span class="n">4</span>A monitoring alarm fires and stops the ramp.</li>
+                <li><span class="n">5</span><b>Rollback = repoint the manifest.</b> No rebuild. The issue hit about 20% of users instead of 100%.</li>
+              </ol>
+            </div>
+          </div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>// AWS frontend discovery schema: one array per MFE
+{ url, fallbackUrl,
+  metadata:   { integrity, version },
+  deployment: { traffic, default } }
+// e.g. v1.2.2 at traffic: 30 and v2.0.0 at traffic: 70</code></pre>
+          </div></details>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🔒</span> Concurrent deploys</h3><p>single-spa's <code>import-map-deployer</code> is safe for them.</p></div>
+            <div class="card"><h3><span class="ico">🚦</span> Vercel's migration</h3><p>Feature flags moved traffic; old code deleted only after a page served traffic <b>a week without errors</b>.</p></div>
+            <div class="card"><h3><span class="ico">⚙️</span> Environment config</h3><p>In the manifest per environment, not baked into bundles.</p></div>
+          </div>
+
+          <h3 class="sub"><span>10.3</span> Observability: one crash must not blank the page</h3>
+          <div class="flow">
+            <div class="step"><b>ErrorBoundary</b><span>fallback: "MFE unavailable"</span></div>
+            <div class="step"><b>Suspense</b><span>fallback: skeleton</span></div>
+            <div class="step"><b>Remote</b><span>catch load failures around <code>import()</code></span></div>
+          </div>
+          <div class="chips"><span class="chip hot">mfe</span><span class="chip hot">mfe_version</span><span class="chip hot">team</span><span class="chip">tag every error, web-vitals beacon and log</span></div>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🛟</span> CDN failover</h3><p>The manifest's <code>fallbackUrl</code>.</p></div>
+            <div class="card"><h3><span class="ico">📮</span> Sentry</h3><p>Bundler plugins add module metadata; <code>makeMultiplexedTransport</code> routes errors to a project per MFE. <code>Sentry.init()</code> once; <b>same SDK version everywhere</b>.</p></div>
+          </div>
+          <details class="dev"><summary>For developers</summary><div class="dev-body">
+<pre><code>&lt;ErrorBoundary fallback={&lt;MfeUnavailable/&gt;}&gt;
+  &lt;Suspense fallback={&lt;Skeleton/&gt;}&gt;
+    &lt;Remote/&gt;
+  &lt;/Suspense&gt;
+&lt;/ErrorBoundary&gt;</code></pre>
+          </div></details>
+
+          <div class="senior">
+            <h3 class="sub"><span>S</span> Developer experience: run one, borrow the rest</h3>
+            <ul>
+              <li>Run only your MFE locally; point the others at deployed versions. single-spa's <code>import-map-overrides</code> toggles each one in an in-browser UI.</li>
+              <li>Repo strategy is contested: single-spa discourages monorepos; Vercel used Turborepo + Dependency Cruiser and kept independent deploys.</li>
+              <li><b>A monorepo does not mean coupled deploys.</b> What matters: independent pipelines and enforced import boundaries.</li>
+            </ul>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Unit tests inside, contracts at seams, thin E2E</li>
+            <li>Immutable files + one mutable pointer</li>
+            <li>Canary by weights; rollback by repointing</li>
+            <li>Error boundary + owner tags per MFE</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 11 -->
+        <section class="domain" id="mfe11-case-studies" data-mod="11" data-short="Case studies">
+          <div class="domain-head"><span class="domain-num">11</span><h2>Case studies: who split, who consolidated</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Companies that gave each team <b>clear pages to own</b> did well. Companies that let every team <b>pick its own tools</b> later pulled back, because the site felt inconsistent and was hard to learn.</p>
+          </div>
+
+          <h3 class="sub"><span>11.1</span> Timeline</h3>
+          <figure class="dg">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 180" role="img" aria-label="Timeline from 2015 to 2024 of micro frontend case studies" xmlns="http://www.w3.org/2000/svg">
+                <path class="ln ax" d="M14,100 H390"/>
+                <circle class="dot" cx="20" cy="100" r="5"/><circle class="dot" cx="50" cy="100" r="5"/><circle class="dot" cx="110" cy="100" r="5"/><circle class="dot" cx="140" cy="100" r="5"/><circle class="dot" cx="200" cy="100" r="5"/><circle class="dot" cx="290" cy="100" r="5"/>
+                <text x="20" y="118" class="m sm" text-anchor="middle">2015</text><text x="50" y="118" class="m sm" text-anchor="middle">2016</text><text x="110" y="118" class="m sm" text-anchor="middle">2018</text><text x="140" y="118" class="m sm" text-anchor="middle">2019</text><text x="200" y="118" class="m sm" text-anchor="middle">2021</text><text x="290" y="118" class="m sm" text-anchor="middle">2024</text>
+                <path class="ln d" d="M20,95 V78 M110,95 V50 M140,95 V78 M290,95 V50 M290,95 V78 M50,105 V136 M110,105 V164 M200,105 V136 M200,105 V164"/>
+                <text x="16" y="74" class="s">Zalando Mosaic</text>
+                <text x="106" y="46" class="s">IKEA: ESI</text>
+                <text x="136" y="74" class="s">Spotify: iframes</text>
+                <text x="290" y="46" class="s" text-anchor="middle">Vercel: Multi-Zones</text>
+                <text x="290" y="74" class="s" text-anchor="middle">Capital One</text>
+                <text x="46" y="148" class="s">DAZN (~2016–2020)</text>
+                <text x="106" y="176" class="s">Zalando IF</text>
+                <text x="206" y="148" class="s" style="fill:var(--trap)">Spotify consolidates</text>
+                <text x="206" y="176" class="s">Zalando ~90% traffic</text>
+              </svg>
+            </div>
+            <figcaption>Approximate eras from the sources ("~" in the cards below). IF = Interface Framework. Red = a consolidation.</figcaption>
+          </figure>
+
+          <h3 class="sub"><span>11.2</span> Who built what</h3>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🛋️</span> IKEA · 2018 → 2024</h3><p><b>ESI</b> server/edge transclusion, later edge SSR. Vertical self-contained systems; teams of ~10–12 own pages and fragments. Favours mean-time-to-recovery.</p><div class="tag-row"><span class="st ok">vertical worked</span></div></div>
+            <div class="card"><h3><span class="ico">👟</span> Zalando · 2015 → 2021</h3><p>Mosaic (Tailor fragments) → Interface Framework: one React/TS/GraphQL rendering engine in a monorepo. <b>~90% of traffic</b> on it by Mar 2021, with Lighthouse CI, bundle limits and Web Vitals gates.</p><div class="tag-row"><span class="st bad">consolidated</span></div></div>
+            <div class="card"><h3><span class="ico">🎧</span> Spotify · ~2019 → 2021</h3><p>One iframe per view + event bus. <b>Replaced</b> by one shared React/TypeScript UI for web and desktop; parity in about a year.</p><div class="tag-row"><span class="st bad">consolidated</span></div></div>
+            <div class="card"><h3><span class="ico">⚽</span> DAZN · ~2016–2020</h3><p>Custom bootstrap orchestrator; one team per view, 5 domains. <b>100+ developers</b>; new teams contributing in <b>week one</b>; shared code changed only twice in 3 years.</p><div class="tag-row"><span class="st ok">vertical worked</span></div></div>
+            <div class="card"><h3><span class="ico">🏦</span> Capital One · 2024 summary</h3><p>App shell, multi-level routing, Vue + React from JSON config. <b>~50 teams, 100+ MFEs</b>; releases from bi-monthly to several a day.</p><div class="tag-row"><span class="st inf">consultancy source</span></div></div>
+            <div class="card"><h3><span class="ico">▲</span> Vercel · 2024</h3><p>Next.js Multi-Zones in a monorepo, vertical by path. <b>&gt;40% faster</b> builds; old code removed after a week error-free.</p><div class="tag-row"><span class="st ok">vertical worked</span></div></div>
+          </div>
+          <div class="callout info"><div><strong class="label">Source caveats</strong>DAZN's write-ups conflict slightly (separate frontend and backend teams, Tailor.js); the likely reading is a vertical split by view on the frontend only. DAZN chose copy-paste over shared components. PayPal and American Express are often cited for server-side composition, but no primary write-up with numbers was found.</div></div>
+
+          <h3 class="sub"><span>11.3</span> Why they pulled back</h3>
+          <div class="dodont">
+            <div class="dont"><h4>Spotify left iframes because</h4><ul><li>Too many web technologies hurt onboarding</li><li>Features built twice (desktop and web)</li><li>The desktop app was very hard to make accessible</li></ul></div>
+            <div class="dont"><h4>Zalando left free-form fragments because</h4><ul><li>Different stacks and deploy practices gave an <b>inconsistent UX</b></li><li>Contributing meant running your own fragment, data sources, tracking and A/B setup</li><li>The new model blurred ownership</li></ul></div>
+          </div>
+          <div class="callout key"><div><strong class="label">The shared lesson</strong>Keep team ownership, but <b>standardise the stack and the design system</b>. Most regrets come from using micro frontends to fix a code-size problem when the real need was module boundaries.</div></div>
+          <p class="muted">One team that dropped micro frontends (dev.to, anecdotal) said autonomy did not replace alignment, and the shell plus several MFEs "crushed laptops" in local dev. It moved to a modular monolith with lint-enforced boundaries.</p>
+
+          <h3 class="sub"><span>11.4</span> Strangler-fig migration</h3>
+          <figure class="dg loop">
+            <div class="dg-scroll">
+              <svg viewBox="0 0 400 160" role="img" aria-label="A thin shell sits in front of a legacy app; new route micro frontends replace it one at a time until the legacy app is gone" xmlns="http://www.w3.org/2000/svg">
+                <g class="bx a"><rect x="8" y="8" width="384" height="28" rx="7"/><text x="200" y="27" class="b" text-anchor="middle">Thin shell / edge router (no business logic)</text></g>
+                <g class="sg1 bx tA"><rect x="8" y="52" width="92" height="60" rx="7"/><text x="54" y="86" class="m sm" text-anchor="middle">/account</text></g>
+                <g class="sg2 bx tB"><rect x="104" y="52" width="92" height="60" rx="7"/><text x="150" y="86" class="m sm" text-anchor="middle">/search</text></g>
+                <g class="sg3 bx tC"><rect x="200" y="52" width="92" height="60" rx="7"/><text x="246" y="86" class="m sm" text-anchor="middle">/product</text></g>
+                <g class="sg4 bx inf"><rect x="296" y="52" width="96" height="60" rx="7"/><text x="344" y="86" class="m sm" text-anchor="middle">/checkout</text></g>
+                <g class="sg-leg bx warn"><rect x="8" y="52" width="384" height="60" rx="7"/></g>
+                <text x="344" y="86" class="b sg-legt" text-anchor="middle" style="fill:var(--key)">Legacy app</text>
+                <text x="200" y="134" class="s" text-anchor="middle">Old and new run side by side; feature flags move traffic</text>
+                <text x="200" y="152" class="s" text-anchor="middle">Finally: delete the legacy app and the bridge</text>
+              </svg>
+            </div>
+            <figcaption>Animated: one low-risk route at a time moves out of the legacy app until nothing old is left. Route names are illustrative.</figcaption>
+          </figure>
+          <div class="flow wrap4">
+            <div class="step"><b>Thin shell</b><span>routing, config, orchestration only</span></div>
+            <div class="step"><b>Pilot one flow</b><span>design, build, deploy, monitor</span></div>
+            <div class="step"><b>One route at a time</b><span>low risk first, by first-level URL</span></div>
+            <div class="step"><b>Shared auth</b><span>cookies or backend, not a store</span></div>
+            <div class="step"><b>Anti-corruption layer</b><span>iframe translating <code>postMessage</code> to your events</span></div>
+            <div class="step"><b>Side by side</b><span>feature flags shift traffic</span></div>
+            <div class="step"><b>Delete legacy</b><span>then keep MFEs or consolidate</span></div>
+          </div>
+          <div class="callout tip"><div><strong class="label">Mixing frameworks</strong>OK <b>only temporarily</b>: during a legacy replacement, a framework version migration, or integrating an acquired app.</div></div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>IKEA, DAZN, Vercel: clear vertical ownership</li>
+            <li>Spotify, Zalando: consolidated the stack</li>
+            <li>Keep ownership, standardise the stack</li>
+            <li>Migrate route by route behind a thin shell</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 12 -->
+        <section class="domain" id="mfe12-anti-patterns" data-mod="12" data-short="Anti-patterns">
+          <div class="domain-head"><span class="domain-num">12</span><h2>Anti-patterns and their fixes</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Ten ways teams get micro frontends wrong. Each one has a short <b>symptom</b> you can spot and a <b>fix</b>.</p>
+          </div>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🔬</span> Nano frontends</h3><p><span class="no">A button or header becomes an MFE.</span><br><span class="yes">Fix:</span> one MFE per subdomain; components for shared UI.</p></div>
+            <div class="card"><h3><span class="ico">🐉</span> Multi-framework page</h3><p><span class="no">Several frameworks load on one page.</span><br><span class="yes">Fix:</span> only during migration or acquisition.</p></div>
+            <div class="card"><h3><span class="ico">🔪</span> Swiss Army Knife comms</h3><p><span class="no">Events + web storage + SystemJS, all mixed.</span><br><span class="yes">Fix:</span> one convention; anti-corruption layer for legacy.</p></div>
+            <div class="card"><h3><span class="ico">🔗</span> Dependencies hell</h3><p><span class="no">Shared core libs force lock-step upgrades.</span><br><span class="yes">Fix:</span> few shared libs; tolerate minor drift.</p></div>
+            <div class="card"><h3><span class="ico">🔁</span> Bidirectional data flow</h3><p><span class="no">Host and remote mutate each other's state.</span><br><span class="yes">Fix:</span> unidirectional flow.</p></div>
+            <div class="card"><h3><span class="ico">🌍</span> Global shared state</h3><p><span class="no">Changing state shape needs every team.</span><br><span class="yes">Fix:</span> pub/sub events with documented inputs and outputs.</p></div>
+            <div class="card"><h3><span class="ico">🔨</span> Hammer the APIs</h3><p><span class="no">Several MFEs call the same endpoint.</span><br><span class="yes">Fix:</span> rethink the split, or fetch once in a container.</p></div>
+            <div class="card"><h3><span class="ico">🧠</span> Logic in the shell</h3><p><span class="no">The shell team becomes a bottleneck.</span><br><span class="yes">Fix:</span> shell = routing, config, orchestration only.</p></div>
+            <div class="card"><h3><span class="ico">🧭</span> Router per MFE</h3><p><span class="no">Broken back button.</span><br><span class="yes">Fix:</span> shell owns history; children sync.</p></div>
+            <div class="card"><h3><span class="ico">⛓️</span> Distributed monolith</h3><p><span class="no">A cannot ship without B.</span><br><span class="yes">Fix:</span> fix the boundary or merge them.</p></div>
+          </div>
+          <p class="muted">Sources: the first seven from Mezzalira's 2023 catalogue; shell logic from his 2025 talk; router problem from practitioner write-ups; distributed monolith from heise.</p>
+          <div class="dodont">
+            <div class="do"><h4>Do</h4><ul><li>Split by business subdomain, vertical first</li><li>One framework baseline, one design system</li><li>URL and events for talking</li><li>Thin shell</li></ul></div>
+            <div class="dont"><h4>Don't</h4><ul><li>Make widgets into MFEs</li><li>Share a global store</li><li>Let every team run its own router</li><li>Ship coordinated deploys and call it independent</li></ul></div>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Too small: nano frontends</li>
+            <li>Too coupled: global state, bidirectional flow</li>
+            <li>Too clever: logic in the shell, router per MFE</li>
+            <li>A cannot ship without B = distributed monolith</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 13 -->
+        <section class="domain" id="mfe13-interview" data-mod="13" data-short="Interview answer">
+          <div class="domain-head"><span class="domain-num">13</span><h2>The interview answer</h2></div>
+          <div class="plain">
+            <span class="level beg">🌱 In plain words</span>
+            <p>Interviewers test <b>judgement</b>. Name the cheaper option first. Then justify the split with a <b>measured</b> team or deploy bottleneck, and say the costs out loud.</p>
+          </div>
+
+          <h3 class="sub"><span>13.1</span> "When would you choose micro frontends?"</h3>
+          <div class="dodont">
+            <div class="do"><h4>Say yes when</h4><ul><li>Several (roughly 5+) autonomous teams own distinct domains</li><li>Independent release cadence is a measured bottleneck</li><li>A legacy app must move route by route</li><li>An acquired app must be integrated</li></ul></div>
+            <div class="dont"><h4>Say no when</h4><ul><li>One or two teams</li><li>Tight UX coupling across the page</li><li>The pain is only build time (monorepo caching, "affected" builds)</li><li>"We might scale someday"</li></ul></div>
+          </div>
+          <div class="quote">"Micro frontends solve an organisational problem. I'd start with a modular monolith in a monorepo, with enforced boundaries. I'd move to vertical micro frontends only when several teams are measurably blocked on shared releases, and I'd accept the costs: duplicate bundles, version skew and harder end-to-end testing."<cite>Model answer from the report</cite></div>
+
+          <h3 class="sub"><span>13.2</span> "Design an e-commerce frontend for 20 teams"</h3>
+          <div class="flow wrap3">
+            <div class="step"><b>Split</b><span>Domains → stream-aligned teams, <b>vertical by route</b></span></div>
+            <div class="step"><b>Compose</b><span><b>Server or edge</b> for SEO and LCP; thin shell</span></div>
+            <div class="step"><b>Contracts</b><span>URL, versioned events, BFF; <b>no global store</b></span></div>
+            <div class="step"><b>Share</b><span>One framework, versioned design system, singletons</span></div>
+            <div class="step"><b>Platform</b><span>CI templates, budgets, observability, manifest, canaries</span></div>
+            <div class="step"><b>Risks</b><span>Each with a fix; "when would we consolidate back?"</span></div>
+          </div>
+          <div class="grid">
+            <div class="card"><h3><span class="ico">🛒</span> Domains to name</h3><p>search, product, cart/checkout, account, content</p></div>
+            <div class="card"><h3><span class="ico">🏢</span> Proof for "compose on the server"</h3><p>IKEA and Zalando composed on the server.</p></div>
+            <div class="card"><h3><span class="ico">⚠️</span> Risks to list</h3><p>Duplicate bundles, inconsistent UX, chatty APIs, version drift, local dev pain.</p></div>
+            <div class="card"><h3><span class="ico">📊</span> Variant: internal dashboard</h3><p>Swap step 2 for a client-side shell (Module Federation or single-spa): SEO matters less. Cite Capital One and SAP Luigi.</p></div>
+          </div>
+
+          <h3 class="sub"><span>13.3</span> Proof points to memorise</h3>
+          <div class="grid">
+            <div class="card"><span class="tile-n">~50 teams</span><span class="tile-l">Capital One: 100+ MFEs, bi-monthly → several releases a day</span></div>
+            <div class="card"><span class="tile-n">Week one</span><span class="tile-l">DAZN: 100+ developers, new teams productive in week one</span></div>
+            <div class="card"><span class="tile-n">~90%</span><span class="tile-l">Zalando: traffic on its unified framework</span></div>
+            <div class="card"><span class="tile-n">&gt;40%</span><span class="tile-l">Vercel: faster preview builds and local compilation</span></div>
+          </div>
+
+          <h3 class="sub"><span>13.4</span> The trade-off checklist</h3>
+          <div class="table-wrap"><table class="compare">
+            <thead><tr><th>Trade-off</th><th>One-line position</th></tr></thead>
+            <tbody>
+              <tr><th>Autonomy vs consistency</th><td>Shared design system + one framework baseline buy back consistency</td></tr>
+              <tr><th>Deploys vs version drift</th><td>Immutable assets + manifest; framework upgrades are platform events</td></tr>
+              <tr><th>Performance</th><td>Singletons, preload, per-MFE budgets</td></tr>
+              <tr><th>Composition</th><td>Route split first; MF for in-page widgets; iframe for untrusted code</td></tr>
+              <tr><th>Routing</th><td>Shell owns the prefix; URL is the contract</td></tr>
+              <tr><th>State</th><td>Events and URL, never a global store</td></tr>
+              <tr><th>Auth</th><td>Shell login, BFF, HttpOnly cookie</td></tr>
+              <tr><th>Testing</th><td>Contracts at seams, thin E2E on the composed app</td></tr>
+              <tr><th>Observability</th><td>Error boundary and owner tags per MFE</td></tr>
+              <tr><th>Exit</th><td>Know when to consolidate back</td></tr>
+            </tbody>
+          </table></div>
+          <div class="callout key"><div><strong class="label">The closing line</strong>A micro frontend system succeeds or fails on its <b>platform team</b>. Calendly: "Microfrontends need a platform, not just a boundary".</div></div>
+
+          <h3 class="sub"><span>Q</span> Flashcards</h3>
+          <div class="flashcards">
+            <details class="qa"><summary>What problem do micro frontends solve?</summary><div class="a"><p>An organisational scaling problem: many teams blocked on one release. Not a code-size problem.</p></div></details>
+            <details class="qa"><summary>The one hard requirement?</summary><div class="a"><p>Independent deployment. Without it, use a modular monolith.</p></div></details>
+            <details class="qa"><summary>Vertical or horizontal first?</summary><div class="a"><p>Vertical by route. Add horizontal splits later, only where widgets must share a page.</p></div></details>
+            <details class="qa"><summary>Why must React be a singleton?</summary><div class="a"><p>Hooks and context break with two copies.</p></div></details>
+            <details class="qa"><summary>How do MFEs talk?</summary><div class="a"><p>URL &gt; props &gt; events &gt; read-only interfaces. Never a global store.</p></div></details>
+            <details class="qa"><summary>How do you roll back an MFE?</summary><div class="a"><p>Repoint the manifest or import map to the previous immutable file. No rebuild.</p></div></details>
+            <details class="qa"><summary>Where do auth tokens live?</summary><div class="a"><p>Server-side behind a BFF, with an HttpOnly Secure cookie. Never in localStorage.</p></div></details>
+            <details class="qa"><summary>What did Spotify and Zalando teach?</summary><div class="a"><p>Keep team ownership, but standardise the stack and the design system.</p></div></details>
+          </div>
+          <div class="cheatsheet"><h3>Key takeaways</h3><ul>
+            <li>Cheaper option first: modular monolith</li>
+            <li>Justify with a measured bottleneck</li>
+            <li>Six steps: split, compose, contracts, share, platform, risks</li>
+            <li>End with "when would we consolidate back?"</li>
+          </ul></div>
+        </section>
+
+        <!-- ================================================================ 14 -->
+        <section class="domain" id="mfe14-quiz" data-short="Quick quiz">
+          <div class="domain-head"><span class="domain-num">14</span><h2>Quick quiz</h2></div>
+          <p>Tap an answer. The right one turns green.</p>
+          <div class="quiz" data-answer="C">
+            <div class="q">Which is the one requirement that justifies micro frontends?</div>
+            <ol><li>A large codebase</li><li>Using several frameworks</li><li>Teams that must deploy independently</li><li>Slow builds</li></ol>
+            <div class="why"><b>C.</b> Independent deployment. Large code or slow builds alone call for a modular monolith and build caching.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">Four developers, a 2-minute build. What do you choose?</div>
+            <ol><li>Module Federation</li><li>A single app or modular monolith</li><li>single-spa</li><li>Edge fragments</li></ol>
+            <div class="why"><b>B.</b> Vercel's thresholds: under 5 developers or a build under 3 minutes means don't use micro frontends.</div>
+          </div>
+          <div class="quiz" data-answer="A">
+            <div class="q">Your first split should usually be…</div>
+            <ol><li>Vertical, by route</li><li>Horizontal, by widget</li><li>By framework</li><li>By file size</li></ol>
+            <div class="why"><b>A.</b> Horizontal splits add immediate complexity and should be deferred.</div>
+          </div>
+          <div class="quiz" data-answer="D">
+            <div class="q">An SEO-heavy shop with separate domains. Which composition fits best?</div>
+            <ol><li>iframes</li><li>Module Federation in the browser</li><li>Build-time npm packages</li><li>Route split or server/edge composition</li></ol>
+            <div class="why"><b>D.</b> Route split and server composition give full SEO. Build-time packages re-couple releases.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">In Module Federation, what does <code>singleton: true</code> do?</div>
+            <ol><li>Loads the remote only once a day</li><li>Only one version of the package loads; the higher wins</li><li>Bundles the dep into the entry</li><li>Turns off sharing</li></ol>
+            <div class="why"><b>B.</b> One version loads; the lower side gets a warning. <code>eager</code> is the one that bundles into the entry.</div>
+          </div>
+          <div class="quiz" data-answer="C">
+            <div class="q">Product wants to tell Cart "item added". What do you use?</div>
+            <ol><li>A shared Redux store</li><li>Import Cart's code into Product</li><li>A versioned <code>CustomEvent</code> on <code>window</code></li><li>localStorage polling</li></ol>
+            <div class="why"><b>C.</b> Events for sibling notices. AWS, Fowler and single-spa all reject a shared global store.</div>
+          </div>
+          <div class="quiz" data-answer="A">
+            <div class="q">A release is bad. What is the fastest safe rollback?</div>
+            <ol><li>Repoint the manifest to the previous immutable file</li><li>Rebuild the shell</li><li>Overwrite the file on the CDN</li><li>Ask every team to redeploy</li></ol>
+            <div class="why"><b>A.</b> Immutable assets + one mutable pointer: rollback is a pointer change, no rebuild.</div>
+          </div>
+          <div class="quiz" data-answer="B">
+            <div class="q">Remote JS is loaded from another origin with Module Federation. Is it sandboxed?</div>
+            <ol><li>Yes, by the origin</li><li>No: it runs with the host page's full privileges</li><li>Yes, if it uses Shadow DOM</li><li>Only in production</li></ol>
+            <div class="why"><b>B.</b> OWASP: another origin does not sandbox it, and Shadow DOM does not isolate scripts. Use a sandboxed iframe for less-trusted code.</div>
+          </div>
+        </section>
+
+        <!-- ================================================================ Sources -->
+        <section class="domain" id="mfe-sources" data-short="Sources">
+          <div class="domain-head"><span class="domain-num">S</span><h2>Sources and learn more</h2></div>
+          <p class="muted">The pages cited in the research report.</p>
+          <div class="src-grid">
+            <div class="card"><h4>Foundations</h4><ul>
+              <li><a href="https://martinfowler.com/articles/micro-frontends.html" target="_blank" rel="noopener">Cam Jackson, martinfowler.com</a></li>
+              <li><a href="https://micro-frontends.org/" target="_blank" rel="noopener">Michael Geers, micro-frontends.org</a></li>
+              <li><a href="https://www.thoughtworks.com/radar/techniques/micro-frontends" target="_blank" rel="noopener">Thoughtworks Radar</a></li>
+              <li><a href="https://thoughtworks.com/radar/techniques/micro-frontend-anarchy" target="_blank" rel="noopener">Radar: micro frontend anarchy</a></li>
+              <li><a href="https://www.oreilly.com/library/view/building-micro-frontends-2nd/9781098170776/" target="_blank" rel="noopener">Building Micro-Frontends, 2nd ed.</a></li>
+              <li><a href="https://www.oreilly.com/library/view/building-micro-frontends/9781492082989/ch04.html" target="_blank" rel="noopener">Mezzalira, ch. 4</a></li>
+            </ul></div>
+            <div class="card"><h4>When to use</h4><ul>
+              <li><a href="https://nx.dev/docs/kb/micro-frontend-architecture" target="_blank" rel="noopener">Nx: micro frontend architecture</a></li>
+              <li><a href="https://heise.de/-10639162" target="_blank" rel="noopener">heise: modular monolith</a></li>
+              <li><a href="https://vercel.com/academy/microfrontends-on-vercel/when-microfrontends" target="_blank" rel="noopener">Vercel Academy</a></li>
+              <li><a href="https://vercel.com/blog/how-vercel-adopted-microfrontends" target="_blank" rel="noopener">How Vercel adopted microfrontends</a></li>
+              <li><a href="https://www.infoq.com/news/2025/11/micro-frontends-migration-qcon" target="_blank" rel="noopener">InfoQ, QCon SF 2025</a></li>
+              <li><a href="https://www.infoq.com/news/2025/04/microfrontend-best-practices" target="_blank" rel="noopener">InfoQ, 2025 best practices</a></li>
+              <li><a href="https://tsh.io/blog/how-modern-frontend-development-has-evolved" target="_blank" rel="noopener">State of Frontend (tsh.io)</a></li>
+            </ul></div>
+            <div class="card"><h4>AWS guidance</h4><ul>
+              <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/micro-frontends-aws/introduction.html" target="_blank" rel="noopener">Introduction</a></li>
+              <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/micro-frontends-aws/organization.html" target="_blank" rel="noopener">Organization</a></li>
+              <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/micro-frontends-aws/composition-approaches.html" target="_blank" rel="noopener">Composition approaches</a></li>
+              <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/micro-frontends-aws/cross-interactivity.html" target="_blank" rel="noopener">Cross-interactivity</a></li>
+              <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/micro-frontends-aws/manage-dependencies.md" target="_blank" rel="noopener">Managing dependencies</a></li>
+              <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/micro-frontends-aws/discovery.html" target="_blank" rel="noopener">Service discovery</a></li>
+              <li><a href="https://github.com/awslabs/frontend-discovery" target="_blank" rel="noopener">awslabs/frontend-discovery</a></li>
+            </ul></div>
+            <div class="card"><h4>Composition tools</h4><ul>
+              <li><a href="https://module-federation.io/guide/start/index.html" target="_blank" rel="noopener">Module Federation</a></li>
+              <li><a href="https://module-federation.io/guide/runtime/runtime-api.html" target="_blank" rel="noopener">MF runtime API</a></li>
+              <li><a href="https://module-federation.io/configure/shared.html" target="_blank" rel="noopener">MF shared config</a></li>
+              <li><a href="https://www.angulararchitects.io/blog/micro-frontends-with-modern-angular-part-1-standalone-and-esbuild/" target="_blank" rel="noopener">Native Federation (Angular Architects)</a></li>
+              <li><a href="https://single-spa.js.org/docs/building-applications/" target="_blank" rel="noopener">single-spa: applications</a></li>
+              <li><a href="https://single-spa.js.org/docs/recommended-setup/" target="_blank" rel="noopener">single-spa: recommended setup</a></li>
+              <li><a href="https://nextjs.org/docs/app/guides/multi-zones" target="_blank" rel="noopener">Next.js Multi-Zones</a></li>
+              <li><a href="https://github.com/podium-lib/podlet" target="_blank" rel="noopener">Podium podlet</a></li>
+              <li><a href="https://www.w3.org/TR/esi-lang/" target="_blank" rel="noopener">W3C ESI</a></li>
+              <li><a href="https://docs.astro.build/en/guides/server-islands/" target="_blank" rel="noopener">Astro server islands</a></li>
+              <li><a href="https://blog.cloudflare.com/fragment-piercing/" target="_blank" rel="noopener">Cloudflare fragment piercing</a></li>
+              <li><a href="https://www.npmjs.com/package/web-fragments" target="_blank" rel="noopener">web-fragments (npm)</a></li>
+            </ul></div>
+            <div class="card"><h4>Cross-cutting</h4><ul>
+              <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Micro_Frontend_Security_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP Micro Frontend Security</a></li>
+              <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API" target="_blank" rel="noopener">MDN: BroadcastChannel</a></li>
+              <li><a href="https://dev.to/florianrappl/css-in-micro-frontends-4jai" target="_blank" rel="noopener">CSS in micro frontends (Rappl)</a></li>
+              <li><a href="https://panda-css.com/docs/guides/federated-microfrontends" target="_blank" rel="noopener">Panda CSS: federated MFEs</a></li>
+              <li><a href="https://stevekinney.com/courses/enterprise-ui/design-systems-across-microfrontends" target="_blank" rel="noopener">Design systems across MFEs</a></li>
+              <li><a href="https://storybook.js.org/docs/sharing/storybook-composition" target="_blank" rel="noopener">Storybook Composition</a></li>
+              <li><a href="https://docs.sentry.io/platforms/javascript/best-practices/micro-frontends" target="_blank" rel="noopener">Sentry: micro frontends</a></li>
+              <li><a href="https://calendly.com/blog/microfrontends-need-a-platform-not-just-a-boundary" target="_blank" rel="noopener">Calendly: a platform, not a boundary</a></li>
+            </ul></div>
+            <div class="card"><h4>Case studies and anti-patterns</h4><ul>
+              <li><a href="https://www.infoq.com/news/2018/08/experiences-micro-frontends" target="_blank" rel="noopener">IKEA (InfoQ, 2018)</a></li>
+              <li><a href="https://engineering.zalando.com/posts/2021/03/micro-frontends-part1.html" target="_blank" rel="noopener">Zalando, Part 1</a></li>
+              <li><a href="https://engineering.atspotify.com/2021/4/building-the-future-of-our-desktop-apps" target="_blank" rel="noopener">Spotify, 2021</a></li>
+              <li><a href="https://uxdx.com/blog/how-dazn-scaled-their-team-using-microfrontends/" target="_blank" rel="noopener">DAZN (UXDX)</a></li>
+              <li><a href="https://bitovi.com/blog/the-truth-behind-micro-frontends-insights-from-real-case-studies" target="_blank" rel="noopener">Capital One (Bitovi)</a></li>
+              <li><a href="https://aws.amazon.com/blogs/industries/dunelms-journey-to-micro-frontends-on-aws" target="_blank" rel="noopener">Dunelm on AWS</a></li>
+              <li><a href="https://www.infoq.com/presentations/microfrontend-antipattern" target="_blank" rel="noopener">Mezzalira: anti-patterns (2023)</a></li>
+              <li><a href="https://dev.to/tahamjp/why-micro-frontends-failed-us-and-what-were-trying-next-43oo" target="_blank" rel="noopener">Why micro frontends failed us (dev.to)</a></li>
+              <li><a href="https://www.greatfrontend.com/blog/micro-frontends-interview-questions" target="_blank" rel="noopener">GreatFrontEnd interview questions</a></li>
+            </ul></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">Micro frontend notes · <a href="frontend-system-design.html#m12-high-level-design">FSD M12 High Level Design</a> · <a href="../index.html">Back to Learning</a></footer>
+  <script src="notes.js"></script>
+  <script>
+  /* Page-only behaviour: step-throughs, looping-animation controls, Vercel checklist. */
+  (() => {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /* 1. Step-throughs: [data-stepper] with an svg and ol.sx-steps */
+    document.querySelectorAll("[data-stepper]").forEach((box) => {
+      const list = box.querySelector("ol.sx-steps");
+      if (!list) return;
+      const steps = [...list.children];
+      const N = steps.length;
+      const vis = [...box.querySelectorAll("[data-from], [data-until]")];
+      const lit = [...box.querySelectorAll("[data-on]")];
+      const pk = [...box.querySelectorAll("[data-at]")];
+      const ctl = document.createElement("div");
+      ctl.className = "sx-ctl";
+      ctl.innerHTML = '<button type="button" class="pri" data-a="play">▶ Play</button>'
+        + '<button type="button" data-a="back" aria-label="Previous step">◀ Back</button>'
+        + '<button type="button" data-a="next" aria-label="Next step">Next ▶</button>'
+        + '<button type="button" data-a="reset">↺ Reset</button>'
+        + '<span class="sx-at" aria-live="polite"></span>';
+      const at = ctl.querySelector(".sx-at");
+      const playBtn = ctl.querySelector('[data-a="play"]');
+      let k = 0, timer = null;
+      const label = (i) => steps[i - 1]?.querySelector(".n")?.textContent.trim() || String(i);
+      const paint = (move) => {
+        vis.forEach((el) => {
+          const f = el.dataset.from ? +el.dataset.from : 0;
+          const u = el.dataset.until ? +el.dataset.until : Infinity;
+          el.classList.toggle("off", !(k >= f && k < u));
+        });
+        lit.forEach((el) => el.classList.toggle("lit", el.dataset.on.split(/\s+/).includes(String(k))));
+        pk.forEach((el) => {
+          el.classList.remove("go");
+          if (move && !reduce && +el.dataset.at === k) { void el.getBoundingClientRect(); el.classList.add("go"); }
+        });
+        steps.forEach((li, i) => {
+          li.classList.toggle("now", i + 1 === k);
+          li.classList.toggle("past", i + 1 < k);
+          if (i + 1 === k) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+        });
+        at.textContent = k ? `Step ${label(k)} · ${k}/${N}` : `${N} steps`;
+      };
+      const go = (n, move = true) => { k = Math.max(0, Math.min(N, n)); paint(move); };
+      const stop = () => { clearInterval(timer); timer = null; playBtn.textContent = "▶ Play"; };
+      ctl.addEventListener("click", (e) => {
+        const a = e.target.closest("button")?.dataset.a;
+        if (!a) return;
+        if (a === "play") {
+          if (timer) { stop(); return; }
+          if (k >= N) go(0, false);
+          playBtn.textContent = "⏸ Pause";
+          go(k + 1);
+          timer = setInterval(() => { if (k >= N) { stop(); return; } go(k + 1); }, 2200);
+          return;
+        }
+        stop();
+        if (a === "next") go(k + 1);
+        else if (a === "back") go(k - 1);
+        else if (a === "reset") go(0, false);
+      });
+      steps.forEach((li, i) => {
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        const pick = () => { stop(); go(i + 1); };
+        li.addEventListener("click", pick);
+        li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+      });
+      list.before(ctl);
+      go(reduce ? N : 0, false);   // reduced motion: start on the finished picture
+    });
+
+    /* 2. Looping animations: Pause / Play button, pause off screen.
+          Reduced motion: they start still (final picture); the button can play them on request. */
+    document.querySelectorAll("figure.loop").forEach((fig) => {
+      const bar = document.createElement("div");
+      bar.className = "anim-ctl";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const live = document.createElement("span");
+      live.className = "live";
+      bar.append(btn, live);
+      let playing = !reduce;
+      const paint = () => {
+        btn.textContent = playing ? "⏸ Pause" : "▶ Play";
+        live.textContent = playing ? "animated" : (reduce ? "still (reduced motion)" : "paused");
+      };
+      btn.addEventListener("click", () => {
+        playing = !playing;
+        if (reduce) fig.classList.toggle("force", playing);
+        fig.classList.toggle("paused", !playing);
+        paint();
+      });
+      fig.querySelector(".dg-scroll")?.after(bar);
+      paint();
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(([e]) => fig.classList.toggle("idle", !e.isIntersecting)).observe(fig);
+      }
+    });
+
+    /* 3. Vercel checklist: any red flag = no; 3+ signals = consider */
+    document.querySelectorAll("[data-vcheck]").forEach((box) => {
+      const out = box.querySelector(".out");
+      const update = () => {
+        const red = box.querySelectorAll("[data-red]:checked").length;
+        const sig = box.querySelectorAll("[data-sig]:checked").length;
+        out.classList.remove("go", "stop");
+        if (red) { out.classList.add("stop"); out.textContent = `🚫 ${red} red flag${red > 1 ? "s" : ""}: stay with a single app or modular monolith.`; }
+        else if (sig >= 3) { out.classList.add("go"); out.textContent = `✅ ${sig} of 5 signals: consider micro frontends. Split vertically by route first.`; }
+        else if (sig) out.textContent = `${sig} of 5 signals: not yet. Try module boundaries, a monorepo and build caching first.`;
+        else out.textContent = "Tick what is true for your team.";
+      };
+      box.addEventListener("change", update);
+    });
+  })();
+  </script>
+</body>
+</html>

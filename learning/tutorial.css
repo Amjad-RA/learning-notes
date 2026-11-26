@@ -1,0 +1,76 @@
+/* Shared layout for tutorial pages in 04-study/learning/ (loaded after tools/output.css; uses its theme variables).
+   Same look as rubiks-cube.html and running.html: sticky bar with section links, step cards, tick lists. */
+.bar { flex-wrap:wrap; row-gap:6px; }
+.barnav { order:3; width:100%; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+.barnav a { flex:none; font-size:13px; font-weight:600; padding:5px 12px; border-radius:999px; background:var(--chip); color:var(--ink); text-decoration:none; margin:0; }
+.barnav a.on { background:var(--accent); color:var(--paper); }
+[id] { scroll-margin-top:110px; }
+h2.sub { margin:30px 0 8px; font-size:20px; }
+.meta-row { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 0; }
+.concept { font-size:15px; }
+.why { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:10px; margin:10px 0; }
+.why div { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:14px; }
+.why .big { font-size:24px; display:block; margin-bottom:4px; }
+
+/* 3D viewer (run3d.js) */
+.viz { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:10px; }
+.viz-stage { position:relative; }
+.viz canvas { width:100%; display:block; border-radius:10px; background:linear-gradient(var(--bg), var(--paper)); touch-action:none; cursor:grab; }
+.viz canvas:active { cursor:grabbing; }
+.viz-cap { position:absolute; left:10px; top:10px; font-size:13px; font-weight:700; background:var(--accent); color:var(--paper); border-radius:999px; padding:4px 11px; max-width:calc(100% - 20px); }
+.viz-cap.bad { background:var(--bad); }
+.viz-hint { position:absolute; right:10px; bottom:8px; font-size:11px; color:var(--muted); }
+.viz-scrub { display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:10px 0 6px; }
+.viz-scrub button { flex:none; font:inherit; font-size:13px; border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:999px; padding:6px 12px; cursor:pointer; min-height:34px; }
+.viz-scrub button b { display:inline-flex; width:18px; height:18px; border-radius:50%; background:var(--chip); align-items:center; justify-content:center; font-size:11px; margin-right:3px; }
+.viz-scrub button.on { border-color:var(--accent); background:var(--chip); font-weight:700; }
+.viz-scrub button.on b { background:var(--accent); color:var(--paper); }
+.viz-bar { height:4px; border-radius:99px; background:var(--chip); overflow:hidden; margin-bottom:8px; }
+.viz-fill { display:block; height:100%; width:0; background:var(--accent); }
+.viz-ctrl { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.viz-ctrl button { font:inherit; font-size:13px; border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:999px; padding:6px 12px; cursor:pointer; min-height:34px; }
+.viz-ctrl button.main { background:var(--accent); color:var(--paper); border-color:var(--accent); font-weight:600; }
+.viz-speed, .viz-mode { display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+.viz-speed button, .viz-mode button { border:0; border-radius:0; min-height:32px; }
+.viz-speed button.on { background:var(--chip); font-weight:700; }
+.viz-mode button[data-m=right].on { background:var(--accent); color:var(--paper); }
+.viz-mode button[data-m=wrong].on { background:var(--bad); color:var(--paper); }
+
+/* step cards, synced to the 3D phases */
+.stepcards { display:grid; gap:10px; margin-top:10px; }
+.stepcard { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:12px 14px; cursor:pointer; transition:border-color .2s, box-shadow .2s; }
+.stepcard.live { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.stepcard .head { display:flex; gap:10px; align-items:center; }
+.stepcard .num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--accent); color:var(--paper); font-weight:700; display:flex; align-items:center; justify-content:center; }
+.stepcard h4 { margin:0; font-size:16px; flex:1; }
+.stepcard .show { font-size:12px; color:var(--accent); font-weight:700; white-space:nowrap; }
+.stepcard ul, .stepcard ol { margin:8px 0 0 18px; padding:0; font-size:14px; } .stepcard li { margin:3px 0; }
+.stepcard p { margin:6px 0 0; font-size:14px; }
+.say { background:var(--chip); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; padding:6px 10px; font-size:14px; margin:6px 0; }
+.scroll { overflow-x:auto; }
+.tbl { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:8px; }
+.tbl th, .tbl td { border-bottom:1px solid var(--line); padding:7px 6px; text-align:left; vertical-align:top; }
+.tbl th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+
+/* mistakes, checklist, next */
+.mist { display:grid; gap:10px; margin-top:10px; }
+.mist > div { display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--paper); }
+.mist .w, .mist .r { padding:10px 12px; font-size:13.5px; }
+.mist .w { background:color-mix(in srgb, var(--bad) 9%, var(--paper)); } .mist .r { background:color-mix(in srgb, var(--ok) 9%, var(--paper)); }
+.mist b { display:block; font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+.mist .w b { color:var(--bad); } .mist .r b { color:var(--ok); }
+@media (max-width:520px) { .mist > div { grid-template-columns:1fr; } }
+.check { list-style:none; padding:0; margin:8px 0; display:grid; gap:6px; }
+.check li { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:9px 12px; display:flex; gap:10px; align-items:flex-start; font-size:14px; }
+.check input { width:20px; height:20px; flex:none; accent-color:var(--accent); margin-top:1px; }
+.next { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr)); gap:10px; margin-top:10px; }
+.next a { display:flex; gap:12px; align-items:center; text-decoration:none; color:var(--ink); background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px; }
+.next a:hover { border-color:var(--accent); }
+.next .n { flex:none; width:34px; height:34px; border-radius:50%; background:var(--chip); font-weight:700; display:flex; align-items:center; justify-content:center; }
+.next small { display:block; color:var(--muted); font-size:12.5px; }
+.donebar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:18px 0 4px; }
+.donebar button { font:inherit; font-size:14px; border:1px solid var(--accent); background:var(--paper); color:var(--ink); border-radius:999px; padding:8px 16px; cursor:pointer; min-height:40px; }
+.donebar button.main { background:var(--accent); color:var(--paper); font-weight:600; }
+.pager { display:flex; justify-content:space-between; gap:8px; margin-top:22px; font-size:14px; }
+.pager a { text-decoration:none; font-weight:600; }
+@media print { .viz-ctrl, .viz-scrub, .viz-hint, .donebar { display:none; } }
