@@ -104,7 +104,7 @@
 
       <article class="topic">
         <div class="top"><div class="ic">📰</div><div><h2 id="newspaper-english">Newspaper English</h2><p class="desc">Read English newspaper headlines with ease: headline rules, newspaper words and practice, with Malayalam help</p></div><span class="tag st p1">Learning</span></div>
-        <div class="facts"><span>📏 &nbsp;15 rules</span><span>📰 &nbsp;281 practice headlines</span></div>
+        <div class="facts"><span>📏 &nbsp;<b id="np-rules">15</b> rules</span><span>📰 &nbsp;<b id="np-count">281</b> practice headlines</span></div>
         <div class="acts">
           <a class="main" href="https://amjad-ra.github.io/News-paper-reading/#practice" target="_blank" rel="noopener">Practise headlines ↗</a>
           <a href="https://amjad-ra.github.io/News-paper-reading/#learn" target="_blank" rel="noopener">Rules</a>
@@ -142,6 +142,23 @@
   try { rr = JSON.parse(localStorage.getItem('rr:done') || '[]'); } catch (e) {}
   $('rr-prog').textContent = rr.length === 11 ? 'All 11 sections ✓' : `${rr.length} of 11 sections`;
   $('rr-bar').style.width = (rr.length / 11 * 100) + '%';
+
+  // Newspaper English: count the rules and headlines straight from the newspaper page's own data files,
+  // so the card stays right as headlines are added there. The numbers in the HTML are the fallback.
+  const NP = 'https://amjad-ra.github.io/News-paper-reading/';
+  const load = (file, done) => {
+    const s = document.createElement('script');
+    s.src = NP + file + '?v=' + Date.now();
+    s.async = true;
+    s.onload = done;
+    document.head.appendChild(s);
+  };
+  load('headlines.js', () => {
+    const hs = Array.isArray(window.HEADLINES) ? window.HEADLINES : [];
+    const n = new Set(hs.map(h => String(Array.isArray(h) ? h[0] : h).trim().toLowerCase()).filter(Boolean)).size;
+    if (n) $('np-count').textContent = n;
+  });
+  load('guide.js', () => { if (Array.isArray(window.GUIDE) && window.GUIDE.length) $('np-rules').textContent = window.GUIDE.length; });
 
   // Stats row: counted from the cards, so a new card updates it without editing this script
   const cards = [...document.querySelectorAll('.topic:not(.add)')];
